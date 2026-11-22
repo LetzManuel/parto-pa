@@ -17,6 +17,8 @@ const AUTH_STUB = `
 export async function testCloud(users: string[]): Promise<PGlite> {
   const db = new PGlite();
   await db.exec(AUTH_STUB + users.map((u) => `insert into auth.users values ('${u}');`).join('\n'));
+  // The shared private core (owned by Parto People) first, then PA's migrations on top.
+  await db.exec(readFileSync(new URL('../fixtures/people_core.sql', DIR), 'utf8'));
   for (const f of readdirSync(DIR).filter((f) => f.endsWith('.sql')).sort()) {
     await db.exec(readFileSync(new URL(f, DIR), 'utf8'));
   }
