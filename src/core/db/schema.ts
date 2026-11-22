@@ -34,6 +34,14 @@ export const MIGRATIONS: string[] = [
   CREATE INDEX pa_order_due ON pa_order (state, due_date);
   CREATE INDEX cal_event_date ON cal_event (date);
   `,
+  /* v2: sync – rows changed on this device since the last push */ `
+  ALTER TABLE pa_order ADD COLUMN dirty INTEGER NOT NULL DEFAULT 1;
+  ALTER TABLE provider ADD COLUMN dirty INTEGER NOT NULL DEFAULT 1;
+  ALTER TABLE deadline ADD COLUMN dirty INTEGER NOT NULL DEFAULT 1;
+  ALTER TABLE memory ADD COLUMN dirty INTEGER NOT NULL DEFAULT 1;
+  ALTER TABLE cal_event ADD COLUMN dirty INTEGER NOT NULL DEFAULT 1;
+  ALTER TABLE memo ADD COLUMN dirty INTEGER NOT NULL DEFAULT 1;
+  `,
 ];
 
 export const TABLES = {

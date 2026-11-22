@@ -7,6 +7,7 @@ import { usePA } from './context';
 import { Empty, Field, Section } from './kit';
 import { syncProviderOrder } from './providers';
 import { loadDemo } from './demo';
+import { Account } from './Account';
 
 export function Me({ onOpenProvider }: { onOpenProvider: (id: string) => void }) {
   const { store, refresh } = usePA();
@@ -14,6 +15,7 @@ export function Me({ onOpenProvider }: { onOpenProvider: (id: string) => void })
   return (
     <div className="screen">
       <h1>Ich</h1>
+      <Account />
       <Section title="Mein Name">
         <div className="form">
           <Field label="Für Unterschrift in E-Mails">

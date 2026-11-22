@@ -44,3 +44,13 @@ supabase/        cloud schema draft: personal space (group kind 'personal'), is_
 
 Cloud sync and sign-in (Parto ID), phone app shell (Tauri, as in Parto Projects), calendar import (ICS/Google/Outlook),
 on-device dictation, geofence for place reminders, push notifications, confirmation by calendar match and share sheet (Phase 2).
+
+## Cloud and sync
+
+Set `VITE_SUPABASE_URL` and `VITE_SUPABASE_PUBLISHABLE_KEY` (in `.env.local`, not committed) to sign in with an e-mail code
+(Ich › Konto & Sync). Without them the app stays device-only. The Supabase auth mail "Magic Link" template must contain
+`{{ .Token }}` so the mail carries the 6-digit code.
+
+Sync (`src/core/sync/engine.ts`): rows changed on the device are pushed, rows the cloud stamped since the last pull
+(`synced_at`) are pulled; the newer `updated_at` wins on both sides (`pa_keep_newer` trigger, migration 0002).
+On first sign-in the device's rows move into the person's personal space (`ensure_personal_space`).

@@ -16,9 +16,16 @@ const camel = (s: string) => s.replace(/_([a-z])/g, (_, c: string) => c.toUpperC
 const q = (col: string) => `"${col}"`;
 
 /** Thin data access over the local SQLite database. All reads skip soft-deleted rows. */
+/** A row as stored and synced: all columns in snake_case, including space_id and deleted. */
+export type RawRow = Record<string, SqlValue>;
+
 export class Store {
-  constructor(private db: Database, readonly spaceId: string, private onChange: () => void = () => {}) {
+  constructor(private db: Database, private space: string, private onChange: () => void = () => {}) {
     migrate(db);
+  }
+
+  get spaceId(): string {
+    return this.space;
   }
 
   list<K extends TableKey>(table: K): RowTypes[K][] {
@@ -29,7 +36,7 @@ export class Store {
     return values.map((row) => {
       const o: Record<string, unknown> = {};
       columns.forEach((c, i) => {
-        if (c === 'deleted' || c === 'space_id') return;
+        if (c === 'deleted' || c === 'space_id' || c === 'dirty') return;
         const k = camel(c);
         o[k] = (t.bools as readonly string[]).includes(k) ? row[i] === 1 : row[i];
       });
@@ -49,7 +56,7 @@ export class Store {
     const updates = cols.filter((c) => c !== 'id' && c !== 'created_at').map((c) => `${q(c)} = excluded.${q(c)}`);
     this.db.run(
       `INSERT INTO ${t.name} (${cols.map(q).join(', ')}) VALUES (${cols.map(() => '?').join(', ')})
-       ON CONFLICT(id) DO UPDATE SET ${updates.join(', ')}, deleted = 0`,
+       ON CONFLICT(id) DO UPDATE SET ${updates.join(', ')}, deleted = 0, dirty = 1`,
       vals,
     );
     this.onChange();
@@ -58,7 +65,7 @@ export class Store {
 
   /** Soft delete, so a later sync can pass the deletion on. */
   remove(table: TableKey, id: string): void {
-    this.db.run(`UPDATE ${TABLES[table].name} SET deleted = 1, updated_at = ? WHERE id = ?`, [new Date().toISOString(), id]);
+    this.db.run(`UPDATE ${TABLES[table].name} SET deleted = 1, dirty = 1, updated_at = ? WHERE id = ?`, [new Date().toISOString(), id]);
     this.onChange();
   }
 
@@ -66,8 +73,56 @@ export class Store {
   forgetAll(): void {
     const now = new Date().toISOString();
     for (const t of ['memory', 'memo'] as const) {
-      this.db.run(`UPDATE ${TABLES[t].name} SET deleted = 1, updated_at = ? WHERE space_id = ?`, [now, this.spaceId]);
+      this.db.run(`UPDATE ${TABLES[t].name} SET deleted = 1, dirty = 1, updated_at = ? WHERE space_id = ? AND deleted = 0`, [now, this.spaceId]);
     }
+    this.onChange();
+  }
+
+  // ---- sync support ----
+
+  /** Rows changed on this device and not pushed yet (deleted ones included, so deletions reach the cloud). */
+  dirtyRows(table: TableKey): RawRow[] {
+    const res = this.db.exec(`SELECT * FROM ${TABLES[table].name} WHERE dirty = 1 AND space_id = ?`, [this.spaceId]);
+    if (!res.length) return [];
+    const { columns, values } = res[0];
+    return values.map((v) => Object.fromEntries(columns.filter((c) => c !== 'dirty').map((c) => [c, v[columns.indexOf(c)]])));
+  }
+
+  /** After a push: clean, unless the row changed again meanwhile. */
+  markClean(table: TableKey, id: string, updatedAt: string): void {
+    this.db.run(`UPDATE ${TABLES[table].name} SET dirty = 0 WHERE id = ? AND updated_at = ?`, [id, updatedAt]);
+  }
+
+  /**
+   * Rows from the cloud. The newer updated_at wins; a local change that is newer stays and is pushed later.
+   * Returns how many rows changed locally.
+   */
+  applyRemote(table: TableKey, rows: RawRow[]): number {
+    const t = TABLES[table].name;
+    let n = 0;
+    for (const r of rows) {
+      const local = this.db.exec(`SELECT updated_at FROM ${t} WHERE id = ?`, [r.id as string])[0]?.values[0]?.[0] as string | undefined;
+      if (local && local > (r.updated_at as string)) continue;
+      const cols = Object.keys(r);
+      const updates = cols.filter((c) => c !== 'id').map((c) => `${q(c)} = excluded.${q(c)}`);
+      this.db.run(
+        `INSERT INTO ${t} (${cols.map(q).join(', ')}, dirty) VALUES (${cols.map(() => '?').join(', ')}, 0)
+         ON CONFLICT(id) DO UPDATE SET ${updates.join(', ')}, dirty = 0`,
+        cols.map((c) => r[c]),
+      );
+      n++;
+    }
+    if (n) this.onChange();
+    return n;
+  }
+
+  /** First sign-in: rows made before (in the device-only space) move into the person's cloud space. */
+  adoptSpace(cloudSpace: string): void {
+    if (cloudSpace === this.space) return;
+    for (const { name } of Object.values(TABLES)) {
+      this.db.run(`UPDATE ${name} SET space_id = ?, dirty = 1 WHERE space_id = ?`, [cloudSpace, this.space]);
+    }
+    this.space = cloudSpace;
     this.onChange();
   }
 
