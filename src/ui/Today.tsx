@@ -1,5 +1,6 @@
 import { activeHints, buildBriefing, type Hint } from '../core/briefing/briefing';
 import { formatLong, fromISO, WEEKDAY_NAMES, formatShort } from '../core/time/dates';
+import { allEvents } from '../core/calendar/feeds';
 import { DEADLINE_KINDS } from '../core/deadlines/deadlines';
 import { runAction } from './actions';
 import { usePA } from './context';
@@ -9,7 +10,7 @@ export function Today({ onOpenProvider }: { onOpenProvider: (id: string) => void
   const { store, today, refresh } = usePA();
   const b = buildBriefing({
     orders: store.list('order'), deadlines: store.list('deadline'), providers: store.list('provider'),
-    memory: store.list('memory'), events: store.list('event'),
+    memory: store.list('memory'), events: allEvents(store),
   }, today);
   const active = activeHints(b);
   const quiet = b.decisions.slice(active.length);
@@ -51,7 +52,7 @@ export function Today({ onOpenProvider }: { onOpenProvider: (id: string) => void
           <ul className="list">
             {b.events.map((e) => (
               <li key={e.id} className={e.tentative ? 'tentative' : ''}>
-                <span className="time">{e.start ?? 'ganztags'}</span>{e.title}{e.tentative && <em> · vorläufig</em>}
+                <span className="time">{e.start ?? 'ganztags'}</span>{e.title}{e.tentative && <em> · vorläufig</em>}{feedOf(e) && <em className="muted"> · {feedOf(e)}</em>}
               </li>
             ))}
           </ul>
@@ -91,3 +92,5 @@ function HintCard({ h, onAction }: { h: Hint; onAction: (id: Hint['actions'][num
     </Card>
   );
 }
+
+const feedOf = (e: object): string | undefined => (e as { feed?: string }).feed;

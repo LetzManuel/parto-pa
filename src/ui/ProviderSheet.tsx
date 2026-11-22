@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { allEvents } from '../core/calendar/feeds';
 import { describeWindows, freeWindows } from '../core/calendar/free';
 import { createOrder, markRequested } from '../core/orders/flow';
 import { mailLink, requestSentence, telLink, webLink, WAY_LABEL } from '../core/providers/contact';
@@ -16,7 +17,7 @@ export function ProviderSheet({ id, onClose }: { id: string; onClose: () => void
   const [done, setDone] = useState<string | null>(null);
   if (!p) return null;
 
-  const windows = freeWindows(store.list('event'), { from: addDays(today, 1), days: 10, dayStart: from, dayEnd: to, minMinutes: 60, skipWeekends: true });
+  const windows = freeWindows(allEvents(store, { busyOnly: true }), { from: addDays(today, 1), days: 10, dayStart: from, dayEnd: to, minMinutes: 60, skipWeekends: true });
   const sentence = requestSentence(p, describeWindows(windows, today));
   const tel = telLink(p), mail = mailLink(p, sentence, store.getMeta('name') ?? ''), web = webLink(p);
 

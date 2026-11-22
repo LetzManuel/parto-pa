@@ -1,4 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { refreshFeeds } from '../platform/calendar';
 import { syncNow } from '../platform/cloud';
 import type { Store } from '../core/db/store';
 import { today as todayISO, type ISODate } from '../core/time/dates';
@@ -25,6 +26,8 @@ export function Provider({ store, children }: { store: Store; children: ReactNod
 
   const runSync = useCallback(() => {
     syncNow(store).then((r) => { if (r?.pulled) setVersion((v) => v + 1); }).catch(() => { /* offline: next try later */ });
+    // Subscribed calendars: at most every 30 minutes.
+    refreshFeeds(store, todayISO(), 30).then((any) => { if (any) setVersion((v) => v + 1); }).catch(() => { /* next try later */ });
   }, [store]);
 
   // Local change: show it now, sync a few seconds later.

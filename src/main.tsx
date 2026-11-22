@@ -17,3 +17,8 @@ openStore().then((store) => {
     </StrictMode>,
   );
 });
+
+// Installed on the home screen it should open offline too (not in dev, not in the one-file preview).
+if (import.meta.env.PROD && import.meta.env.VITE_PREVIEW_DEMO !== '1' && 'serviceWorker' in navigator && location.protocol === 'https:') {
+  navigator.serviceWorker.register('./sw.js').catch(() => { /* no offline shell, app still works */ });
+}
