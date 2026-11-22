@@ -12,6 +12,7 @@ const AUTH_STUB = `
   create function auth.uid() returns uuid language sql stable
     as 'select nullif(current_setting(''test.uid'', true), '''')::uuid';
   create role authenticated;
+  create role anon;
 `;
 
 export async function testCloud(users: string[]): Promise<PGlite> {
