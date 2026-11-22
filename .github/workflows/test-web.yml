@@ -34,6 +34,8 @@ jobs:
         env:
           TOKEN: ${{ secrets.RELEASES_TOKEN }}
         run: |
+          # Until Manuel has set up the test repository and token, only warn (the build above still checks).
+          if [ -z "$TOKEN" ]; then echo "::warning::Secret RELEASES_TOKEN is missing – test web not published"; exit 0; fi
           cd dist
           git init -q -b gh-pages
           git config user.name "github-actions"
