@@ -28,6 +28,7 @@ function Shell() {
   usePA(); // re-render on data changes
   return (
     <div className="app">
+      {import.meta.env.VITE_APP_ENV === 'test' && <div className="test-badge" title="Testumgebung, nur Testdaten">TEST</div>}
       <main>
         {tab === 'today' && <Today onOpenProvider={setSheet} />}
         {tab === 'calendar' && <Calendar />}

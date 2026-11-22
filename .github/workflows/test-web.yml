@@ -1,0 +1,44 @@
+name: Test web
+
+# Publishes the pilot to the TEST address https://test-pa.parto.at (test cloud parto-private-test, TEST badge).
+# Target: GitHub Pages of the PUBLIC repository LetzManuel/parto-pa-test (branch gh-pages), same setup as
+# Parto Projects' test-projects.parto.at. Needs the secret RELEASES_TOKEN with "Contents: read and write" on
+# LetzManuel/parto-pa-test.
+on:
+  push:
+    branches: [main, 'pilot/**']
+    paths: ['src/**', 'public/**', 'index.html', 'package.json', 'package-lock.json', 'vite.config.*', '.env.test', '.github/workflows/test-web.yml']
+  workflow_dispatch:
+
+concurrency:
+  group: test-web
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: npm }
+      - run: npm ci
+      - run: npm test
+      - run: npx vite build --mode test
+      - name: Prepare site
+        run: |
+          cp dist/index.html dist/404.html
+          echo "test-pa.parto.at" > dist/CNAME
+          touch dist/.nojekyll
+          printf 'User-agent: *\nDisallow: /\n' > dist/robots.txt
+      - name: Push to gh-pages
+        env:
+          TOKEN: ${{ secrets.RELEASES_TOKEN }}
+        run: |
+          cd dist
+          git init -q -b gh-pages
+          git config user.name "github-actions"
+          git config user.email "github-actions@users.noreply.github.com"
+          git add -A
+          git commit -q -m "Test build ${GITHUB_SHA::7} (${GITHUB_REF_NAME})"
+          git push -f "https://x-access-token:${TOKEN}@github.com/LetzManuel/parto-pa-test.git" gh-pages || {
+            echo "::error::Could not publish to LetzManuel/parto-pa-test – does the repository exist, and may RELEASES_TOKEN write to it?"; exit 1; }

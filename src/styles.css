@@ -88,3 +88,4 @@ textarea.memo { width: 100%; border: 1px solid var(--line); border-radius: var(-
 .sheet h2 { font-size: 1.25rem; text-transform: none; letter-spacing: 0; color: var(--ink); }
 @media (max-width: 380px) { .row { flex-direction: column; gap: 0; } }
 [hidden] { display: none !important; }
+.test-badge { position: fixed; top: calc(8px + env(safe-area-inset-top, 0px)); right: calc(8px + env(safe-area-inset-right, 0px)); background: #e07b1f; color: #fff; font-size: 0.7rem; font-weight: 700; letter-spacing: 0.08em; padding: 3px 8px; border-radius: 6px; z-index: 20; }
