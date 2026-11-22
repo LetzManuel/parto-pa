@@ -8,7 +8,8 @@
     "build": "tsc -b && vite build",
     "lint": "eslint src --quiet",
     "test": "vitest run",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "build:preview": "VITE_PREVIEW_DEMO=1 vite build --outDir dist-preview --emptyOutDir && python3 scripts/single-file.py dist-preview dist-preview/parto-pa-preview.html"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.117.1",

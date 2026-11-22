@@ -6,13 +6,19 @@
   color-scheme: light;
 }
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not([data-theme="light"]) {
     --bg: #12171d; --surface: #1b222b; --ink: #e8ecf0; --muted: #98a3ae; --line: #2b3440;
     --brand: #8fb6dc; --brand-ink: #10202f; --accent: #1d2a38; --accent-line: #2e4257;
     --warn: #2f2519; --warn-line: #5a4426; --ok: #6cc49c; --danger: #ef8a7a; --health: #d59bd9;
     color-scheme: dark;
   }
 }
+:root[data-theme="dark"] {
+    --bg: #12171d; --surface: #1b222b; --ink: #e8ecf0; --muted: #98a3ae; --line: #2b3440;
+    --brand: #8fb6dc; --brand-ink: #10202f; --accent: #1d2a38; --accent-line: #2e4257;
+    --warn: #2f2519; --warn-line: #5a4426; --ok: #6cc49c; --danger: #ef8a7a; --health: #d59bd9;
+    color-scheme: dark;
+  }
 * { box-sizing: border-box; }
 html, body { margin: 0; background: var(--bg); color: var(--ink); font-family: var(--font); font-size: 16px; -webkit-text-size-adjust: 100%; }
 button, input, select, textarea { font: inherit; color: inherit; }

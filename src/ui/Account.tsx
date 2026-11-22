@@ -19,7 +19,7 @@ export function Account() {
   if (!cloudConfigured()) {
     return (
       <Section title="Konto & Sync">
-        <p className="hint-line">Diese Version speichert nur auf dem Gerät. Die Cloud ist noch nicht eingerichtet.</p>
+        <p className="hint-line">Diese Version speichert nur auf diesem Gerät, ohne Anmeldung und Sync.</p>
       </Section>
     );
   }

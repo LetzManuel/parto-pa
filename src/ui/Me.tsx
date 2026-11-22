@@ -12,6 +12,7 @@ import { Account } from './Account';
 export function Me({ onOpenProvider }: { onOpenProvider: (id: string) => void }) {
   const { store, refresh } = usePA();
   const [name, setName] = useState(store.getMeta('name') ?? '');
+  const [sure, setSure] = useState(false);
   return (
     <div className="screen">
       <h1>Ich</h1>
@@ -28,7 +29,12 @@ export function Me({ onOpenProvider }: { onOpenProvider: (id: string) => void })
       <Section title="Daten">
         <div className="actions wrap">
           <button onClick={() => { loadDemo(store); refresh(); }}>Beispieldaten laden</button>
-          <button className="danger" onClick={() => { if (confirm('Gedächtnis und alle Memos löschen?')) { store.forgetAll(); refresh(); } }}>Alles vergessen</button>
+          {!sure
+            ? <button className="danger" onClick={() => setSure(true)}>Alles vergessen</button>
+            : <>
+                <button className="danger" onClick={() => { store.forgetAll(); setSure(false); refresh(); }}>Ja, Gedächtnis und Memos löschen</button>
+                <button onClick={() => setSure(false)}>Abbrechen</button>
+              </>}
         </div>
         <p className="hint-line">„Alles vergessen“ löscht Gedächtnis und Memos auf einmal. Aufträge, Termine und Fristen bleiben.</p>
       </Section>
