@@ -9,8 +9,10 @@ import { syncProviderOrder } from './providers';
 import { loadDemo } from './demo';
 import { Account } from './Account';
 import { ShoppingSettings } from './Shopping';
+import { Favourites } from './Favourites';
+import type { FavKind } from '../core/favourites/model';
 
-export function Me({ onOpenProvider, onOpenBasket }: { onOpenProvider: (id: string) => void; onOpenBasket: (id: string) => void }) {
+export function Me({ onOpenProvider, onOpenBasket, onFind }: { onOpenProvider: (id: string) => void; onOpenBasket: (id: string) => void; onFind: (kind: FavKind, topic: string | null) => void }) {
   const { store, refresh } = usePA();
   const [name, setName] = useState(store.getMeta('name') ?? '');
   const [sure, setSure] = useState(false);
@@ -25,6 +27,7 @@ export function Me({ onOpenProvider, onOpenBasket }: { onOpenProvider: (id: stri
           </Field>
         </div>
       </Section>
+      <Favourites onCheck={onFind} />
       <Providers onOpen={onOpenProvider} />
       <ShoppingSettings onOpen={onOpenBasket} />
       <Memory />

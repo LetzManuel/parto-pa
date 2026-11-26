@@ -37,6 +37,19 @@ src/ui/          React screens: Heute, Kalender, + (Memo), Aufträge/Fristen, Ic
 supabase/        cloud schema draft: personal space (group kind 'personal'), is_group_member, has_app, RLS
 ```
 
+## Favourites check ("Friseur morgen 14 bis 17 Uhr")
+
+Say or type a request (big mic on *Heute*, home-screen shortcut *Finden* = `?finden=1`, or "+" memo). PA parses it on the
+device (`src/core/favourites/request.ts`), checks the favourites of that list in order (up to 3 each: Friseur & Beauty,
+Restaurant, Tickets, Ärzte per field, Babysitter), stops at the first free slot, reads the result aloud and offers one
+button to finish in the other app. PA never books, buys or sends.
+
+Adapters (`src/core/favourites/adapters.ts`): resmio (restaurants), Salonized (salons), Ticketmaster Discovery
+(needs `VITE_TICKETMASTER_KEY`), `demo`. Everything else (Treatwell, Shore, Fresha, Planity, Timify, OpenTable, TheFork,
+Quandoo, oeticket/Eventim, Doctolib, Latido, DocFinder, private babysitters) gets the handoff: booking page, call,
+WhatsApp/SMS with a prepared text, "Anruf einplanen" or "Angefragt, warte". In the browser, blocked requests go through
+the function `slot-relay` (signed in only, fixed hosts). Cloud table: `supabase/migrations/0004_pa_favourite.sql`.
+
 ## Rules that always hold
 
 - Nothing is booked, paid, sent or cancelled without a tap. PA prepares, the user acts.

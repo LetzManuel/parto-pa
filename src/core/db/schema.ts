@@ -53,6 +53,12 @@ export const MIGRATIONS: string[] = [
     created_at TEXT NOT NULL, updated_at TEXT NOT NULL, deleted INTEGER NOT NULL DEFAULT 0, dirty INTEGER NOT NULL DEFAULT 1);
   CREATE INDEX shop_run_date ON shop_run (date);
   `,
+  /* v4: favourites (Friseur, Restaurant, Tickets, Ärzte, Babysitter), checked in priority order */ `
+  CREATE TABLE favourite (
+    id TEXT PRIMARY KEY, space_id TEXT NOT NULL, kind TEXT NOT NULL, topic TEXT, priority INTEGER NOT NULL,
+    name TEXT NOT NULL, system TEXT NOT NULL, system_ref TEXT, booking_url TEXT, phone TEXT, duration_min INTEGER, note TEXT,
+    created_at TEXT NOT NULL, updated_at TEXT NOT NULL, deleted INTEGER NOT NULL DEFAULT 0, dirty INTEGER NOT NULL DEFAULT 1);
+  `,
 ];
 
 export const TABLES = {
@@ -64,6 +70,7 @@ export const TABLES = {
   memo: { name: 'memo', bools: [] as string[] },
   shopList: { name: 'shop_list', bools: [] as string[] },
   shopRun: { name: 'shop_run', bools: [] as string[] },
+  favourite: { name: 'favourite', bools: [] as string[] },
 } as const;
 
 export type TableKey = keyof typeof TABLES;

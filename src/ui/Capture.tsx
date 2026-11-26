@@ -14,6 +14,8 @@ import { createMemory, sourceFromMemo, CATEGORY_LABEL, guessCategory } from '../
 import { suggest, TEMPLATES, type Suggestion, type TemplateId } from '../core/templates/templates';
 import type { Unit } from '../core/time/dates';
 import { usePA } from './context';
+import { parseRequest as parseBooking } from '../core/favourites/request';
+import { KIND_LABEL } from '../core/favourites/model';
 import { Chip, Field } from './kit';
 
 const UNITS: Array<[Unit, string]> = [['week', 'Wochen'], ['month', 'Monate'], ['year', 'Jahre']];
@@ -22,7 +24,7 @@ const UNITS: Array<[Unit, string]> = [['week', 'Wochen'], ['month', 'Monate'], [
  * The microphone tab: say anything. "Schreib Anna, dass …" becomes a message, everything else a memo that a
  * fixed template turns into an order. Nothing is saved or sent before a spoken or tapped confirmation.
  */
-export function Capture({ onDone, onOpenBasket }: { onDone: () => void; onOpenBasket: (id: string) => void }) {
+export function Capture({ onDone, onOpenBasket, onFind }: { onDone: () => void; onOpenBasket: (id: string) => void; onFind: (text: string) => void }) {
   const { store, today, refresh } = usePA();
   const recipients = useRecipients();
   const [text, setText] = useState('');
@@ -102,6 +104,7 @@ export function Capture({ onDone, onOpenBasket }: { onDone: () => void; onOpenBa
 
   const shopIntent = useMemo(() => (isShoppingIntent(text) ? parseShopping(text) : null), [text]);
   const suggestions = useMemo(() => suggest(text, today), [text, today]);
+  const booking = useMemo(() => parseBooking(text, today), [text, today]);
   const base = suggestions.find((s) => s.template === picked) ?? (picked ? { template: picked, title: text, dueDate: null, confidence: 0 } : suggestions[0]);
   const s: Suggestion | undefined = base ? { ...base, ...edit } as Suggestion : undefined;
   const tpl = s?.template;
@@ -166,6 +169,9 @@ export function Capture({ onDone, onOpenBasket }: { onDone: () => void; onOpenBa
       <div className="chips">
         {TEMPLATES.map((t) => <Chip key={t.id} active={tpl === t.id} onClick={() => choose(t.id)}>{t.label}</Chip>)}
       </div>
+      {booking && (
+        <div className="actions"><button className="primary" onClick={() => { onFind(text); setText(''); }}>Bei Favoriten prüfen ({booking.topic ?? KIND_LABEL[booking.kind]})</button></div>
+      )}
       {!tpl && text.trim() && <p className="hint-line">Keine Form erkannt. Wähle eine aus oder speichere es als Notiz.</p>}
       {!text.trim() && (
         <ul className="patterns">{TEMPLATES.map((t) => <li key={t.id}>{t.pattern}</li>)}</ul>

@@ -51,7 +51,7 @@ describe('cloud schema on the shared core', () => {
     await expect(as(db, A, INSERT, order(sa, 'ohne PA'))).rejects.toThrow(/row-level security/);
   });
 
-  it('keeps shopping lists and order history in the personal space only', async () => {
+  it('keeps shopping lists, order history and favourites (doctors!) in the personal space only', async () => {
     const db = await testCloud([A, B]);
     const sa = await space(db, A);
     await space(db, B);
@@ -65,5 +65,10 @@ describe('cloud schema on the shared core', () => {
     expect((await as(db, B, 'select name from shop_list')).rows).toEqual([]);
     expect((await as(db, B, 'select id from shop_run')).rows).toEqual([]);
     expect((await as(db, A, 'select name from shop_list')).rows).toEqual([{ name: 'Wocheneinkauf' }]);
+    const FAV = 'insert into favourite (id, space_id, kind, topic, priority, name, system, created_at, updated_at) values ($1, $2, $3, $4, $5, $6, $7, $8, $9)';
+    await as(db, A, FAV, [crypto.randomUUID(), sa, 'doctor', 'Zahnarzt', 1, 'Dr. Zahn', 'doctolib', now(), now()]);
+    await expect(as(db, A, FAV, [crypto.randomUUID(), FAM, 'doctor', 'Zahnarzt', 1, 'Dr. Familie', 'manual', now(), now()])).rejects.toThrow(/row-level security/);
+    expect((await as(db, A, 'select name from favourite')).rows.map((r) => r.name)).toEqual(['Dr. Zahn']);
+    expect((await as(db, B, 'select name from favourite')).rows).toEqual([]);
   });
 });
