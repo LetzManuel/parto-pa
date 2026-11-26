@@ -13,14 +13,15 @@ export function Calendar() {
   const [date, setDate] = useState(today);
   const [start, setStart] = useState('');
   const [end, setEnd] = useState('');
+  const [where, setWhere] = useState('');
   const until = addDays(today, 14);
   const events = allEvents(store).filter((e) => e.date >= today && e.date <= until)
     .sort((a, b) => (a.date + (a.start ?? '')).localeCompare(b.date + (b.start ?? '')));
   const days = [...new Set(events.map((e) => e.date))];
 
   const add = () => {
-    store.save('event', stamp({ title: title.trim(), date, start: start || null, end: end || null, tentative: false, orderId: null }));
-    setTitle(''); setStart(''); setEnd(''); refresh();
+    store.save('event', stamp({ title: title.trim(), date, start: start || null, end: end || null, tentative: false, orderId: null, location: where.trim() || null }));
+    setTitle(''); setStart(''); setEnd(''); setWhere(''); refresh();
   };
 
   return (
@@ -35,7 +36,7 @@ export function Calendar() {
               {events.filter((e) => e.date === d).map((e) => (
                 <li key={e.id} className={e.tentative ? 'tentative' : ''}>
                   <span className="time">{e.start ? `${e.start}${e.end ? '–' + e.end : ''}` : 'ganztags'}</span>
-                  <span className="grow">{e.title}{e.tentative && <em> · vorläufig</em>}{e.feed && <em className="muted"> · {e.feed}</em>}</span>
+                  <span className="grow">{e.title}{e.tentative && <em> · vorläufig</em>}{e.location && <em> · {e.location}</em>}{e.feed && <em className="muted"> · {e.feed}</em>}</span>
                   {!e.feed && <button className="link" onClick={() => { store.remove('event', e.id); refresh(); }}>Löschen</button>}
                 </li>
               ))}
@@ -52,6 +53,7 @@ export function Calendar() {
             <Field label="Von"><input type="time" value={start} onChange={(e) => setStart(e.target.value)} /></Field>
             <Field label="Bis"><input type="time" value={end} onChange={(e) => setEnd(e.target.value)} /></Field>
           </div>
+          <Field label="Ort (mit Adresse rechnet PA, wann du los musst)"><input value={where} placeholder="z. B. Mariahilfer Straße 1, 1060 Wien" onChange={(e) => setWhere(e.target.value)} /></Field>
           <div className="actions"><button className="primary" disabled={!title.trim() || !date} onClick={add}>Eintragen</button></div>
         </div>
       </Section>

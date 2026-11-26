@@ -16,7 +16,11 @@ import type { Unit } from '../core/time/dates';
 import { usePA } from './context';
 import { parseRequest as parseBooking } from '../core/favourites/request';
 import { KIND_LABEL } from '../core/favourites/model';
-import { Chip, Field } from './kit';
+import { Card, Chip, Field } from './kit';
+import { upcomingTimed } from '../core/calendar/upcoming';
+import { applyCommand, parseTravelCommand } from '../core/travel/voice';
+import { getPrefs, setPrefs } from '../core/travel/prefs';
+import { tick } from '../platform/reminders';
 
 const UNITS: Array<[Unit, string]> = [['week', 'Wochen'], ['month', 'Monate'], ['year', 'Jahre']];
 
@@ -105,6 +109,14 @@ export function Capture({ onDone, onOpenBasket, onFind }: { onDone: () => void; 
   const shopIntent = useMemo(() => (isShoppingIntent(text) ? parseShopping(text) : null), [text]);
   const suggestions = useMemo(() => suggest(text, today), [text, today]);
   const booking = useMemo(() => parseBooking(text, today), [text, today]);
+  // "Heute bin ich mit dem Auto unterwegs": a travel setting, not an order. One tap applies it.
+  const travel = useMemo(() => parseTravelCommand(text, today, upcomingTimed(store, Date.now(), 48)), [text, today, store]);
+  const applyTravel = () => {
+    if (!travel) return;
+    setPrefs(store, applyCommand(getPrefs(store), travel), today);
+    refresh(); setText('');
+    tick(store).then(refresh).catch(() => { /* next round */ });
+  };
   const base = suggestions.find((s) => s.template === picked) ?? (picked ? { template: picked, title: text, dueDate: null, confidence: 0 } : suggestions[0]);
   const s: Suggestion | undefined = base ? { ...base, ...edit } as Suggestion : undefined;
   const tpl = s?.template;
@@ -166,18 +178,28 @@ export function Capture({ onDone, onOpenBasket, onFind }: { onDone: () => void; 
       {shopIntent && <ShoppingCapture intent={shopIntent} onSaved={(id) => { setText(''); onOpenBasket(id); }} />}
       {!shopIntent && <>
 
-      <div className="chips">
+      {travel && (
+        <div className="travel-cmd">
+          <Card tone="accent">
+            <div className="hint-title">Wege</div>
+            <div className="hint-text">{travel.confirm}</div>
+            <div className="actions"><button className="primary" onClick={applyTravel}>Übernehmen</button></div>
+          </Card>
+        </div>
+      )}
+
+      <div className="chips" hidden={!!travel}>
         {TEMPLATES.map((t) => <Chip key={t.id} active={tpl === t.id} onClick={() => choose(t.id)}>{t.label}</Chip>)}
       </div>
       {booking && (
         <div className="actions"><button className="primary" onClick={() => { onFind(text); setText(''); }}>Bei Favoriten prüfen ({booking.topic ?? KIND_LABEL[booking.kind]})</button></div>
       )}
-      {!tpl && text.trim() && <p className="hint-line">Keine Form erkannt. Wähle eine aus oder speichere es als Notiz.</p>}
+      {!tpl && !travel && text.trim() && <p className="hint-line">Keine Form erkannt. Wähle eine aus oder speichere es als Notiz.</p>}
       {!text.trim() && (
         <ul className="patterns">{TEMPLATES.map((t) => <li key={t.id}>{t.pattern}</li>)}</ul>
       )}
 
-      {s && tpl && (
+      {s && tpl && !travel && (
         <div className="form">
           <Field label={tpl === 'birthday' ? 'Wer' : 'Was'}>
             <input value={tpl === 'birthday' ? s.person ?? '' : s.title}
@@ -212,7 +234,7 @@ export function Capture({ onDone, onOpenBasket, onFind }: { onDone: () => void; 
         </div>
       )}
 
-      <div className="actions sticky">
+      <div className="actions sticky" hidden={!!travel}>
         <button disabled={!text.trim()} onClick={save} hidden={!!tpl}>Als Notiz speichern</button>
         <button className="primary" disabled={!text.trim() || !tpl || (tpl !== 'location' && tpl !== 'recurring' && !s?.dueDate)} onClick={save}>Speichern</button>
       </div>

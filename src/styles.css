@@ -163,3 +163,12 @@ button.big { min-height: 48px; padding: 10px 22px; font-size: 1.05rem; }
 .list.fav li { align-items: center; }
 a.button { color: var(--ink); }
 a.button.primary { color: var(--brand-ink); }
+/* "Als Nächstes": the one thing to know on the go, readable at arm's length. */
+.card.next { margin-top: 14px; }
+.next-when { font-size: 1.6rem; font-weight: 900; letter-spacing: -0.01em; }
+.next-what { font-weight: 800; margin: 2px 0 4px; }
+.next-after { margin-top: 10px; }
+.chips.tight { margin: 10px 0 0; }
+.card.next .actions .button { flex: 1; text-align: center; padding: 11px 16px; }
+.travel-cmd { margin-top: 10px; }
+[hidden] { display: none !important; }

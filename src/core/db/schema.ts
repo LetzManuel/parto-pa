@@ -59,6 +59,9 @@ export const MIGRATIONS: string[] = [
     name TEXT NOT NULL, system TEXT NOT NULL, system_ref TEXT, booking_url TEXT, phone TEXT, duration_min INTEGER, note TEXT,
     created_at TEXT NOT NULL, updated_at TEXT NOT NULL, deleted INTEGER NOT NULL DEFAULT 0, dirty INTEGER NOT NULL DEFAULT 1);
   `,
+  /* v5: where an appointment takes place (leave-by reminders) */ `
+  ALTER TABLE cal_event ADD COLUMN location TEXT;
+  `,
 ];
 
 export const TABLES = {

@@ -38,8 +38,6 @@ export function loadDemo(store: Store, ref = todayISO()): void {
   store.save('shopList', { ...week, weekday: null, nextDate: addDays(ref, 1) });
   store.save('shopList', { ...listFromIntent(parseShopping('Pizza Freitag bei Lieferando: Pizza Margherita, Pizza Diavola')!, ref), name: 'Pizza Freitag', state: 'active', nextDate: null });
   store.save('event', stamp({ title: 'Team-Meeting', date: ref, start: '09:30', end: '10:30', tentative: false, orderId: null }));
-  store.save('event', stamp({ title: 'Laufen mit Ben', date: ref, start: '18:00', end: '19:00', tentative: false, orderId: null }));
-  store.save('event', stamp({ title: 'Elternabend', date: addDays(ref, 1), start: '18:30', end: '20:00', tentative: false, orderId: null }));
 
   // Favourites: "demo" reads example slots without network, the others show the handoff.
   const fav = (f: Partial<Favourite> & Pick<Favourite, 'name' | 'kind' | 'priority'>) =>
@@ -55,4 +53,6 @@ export function loadDemo(store: Store, ref = todayISO()): void {
   fav({ kind: 'doctor', topic: 'Hausarzt', priority: 1, name: 'Dr. Huber', phone: '+43 1 444 55 66' });
   fav({ kind: 'babysitter', priority: 1, name: 'Lena Huber', phone: '0664 123 45 67' });
   fav({ kind: 'babysitter', priority: 2, name: 'Jakob Steiner', phone: '0676 765 43 21' });
+  store.save('event', stamp({ title: 'Laufen mit Ben', date: ref, start: '18:00', end: '19:00', tentative: false, orderId: null, location: 'Prater Hauptallee, 1020 Wien' }));
+  store.save('event', stamp({ title: 'Elternabend', date: addDays(ref, 1), start: '18:30', end: '20:00', tentative: false, orderId: null, location: 'Volksschule Zirkusgasse 48, 1020 Wien' }));
 }

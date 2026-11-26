@@ -87,7 +87,7 @@ export function allEvents(store: Store, opts: { busyOnly?: boolean } = {}): Arra
           title: e.title, date: d,
           start: timed && first ? e.start : timed && !first ? '00:00' : null,
           end: timed && last ? e.end : timed && !last ? '23:59' : null,
-          tentative: false, orderId: null,
+          tentative: false, orderId: null, location: e.location ?? null,
         }, new Date(0)),
         id: `${e.key}|${d}`,
         feed: e.feed,

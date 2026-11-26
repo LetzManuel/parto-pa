@@ -32,6 +32,9 @@ src/core/        logic without UI, unit-tested
                  mailto / sms: / wa.me links. Public API in messages/index.ts, reused by other features
   shopping/      groceries and food: spoken orders, baskets with a rhythm, hand-over to the platform
   calendar/      free windows (times only, never other appointments' content)
+  calendar/      ICS feeds, free windows, upcomingTimed (next appointments with place, shared by all features)
+  travel/        travel preferences (Auto/Öffis/zu Fuß/Rad), voice sentences for them, estimates, navigation links
+  reminders/     appointment reminders and leave-by times (route + buffer), what is due now
   db/            local SQLite schema (sql.js) and Store
 src/ui/          React screens: Heute, Kalender, + (Memo), Aufträge/Fristen, Ich
 supabase/        cloud schema draft: personal space (group kind 'personal'), is_group_member, has_app, RLS
@@ -96,3 +99,17 @@ Lieferando, Wolt, Alfies. SPAR/INTERSPAR and HOFER no longer deliver groceries, 
 None of them has a public customer ordering API (Lieferando, foodora and Wolt only offer merchant/courier APIs).
 gurkerl runs an official MCP server (`https://mcp.gurkerl.at/mcp`, OAuth with the user's gurkerl account) with search and
 cart, so PA can later fill the gurkerl cart directly; the order is still sent in gurkerl. PA never orders or pays itself.
+## Appointment reminders and leave-by times
+
+PA reminds of every timed appointment (own and subscribed calendars). With a place it works out when to leave:
+route time for the person's mode (usual, per day or per appointment) plus buffer, a heads-up before and "Jetzt los"
+with one action (navigation). Without a place, a reminder a few minutes ahead; with a meeting link, "Beitreten".
+The trip starts at the appointment right before, else where the phone is (if allowed), else the home address.
+
+Routes: cloud function `travel-time` asks the Google Routes API (live traffic, Wiener Linien/ÖBB). It needs the function
+secret `GOOGLE_MAPS_API_KEY` (Google Cloud project with "Routes API" enabled, key restricted to that API). Without the key,
+without sign-in or offline, PA geocodes with OpenStreetMap and estimates from the distance (shown as "geschätzt").
+Settings live on the device (Ich › Wege & Erinnerungen) and can be said in a memo: „Heute bin ich mit dem Auto unterwegs“.
+
+Web version: notifications show while PA is open or in the background. Lock-screen reminders with PA closed need the
+phone shell's local notifications (or web push) and plug into `src/platform/notify.ts`.

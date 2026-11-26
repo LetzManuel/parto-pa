@@ -86,6 +86,8 @@ export interface CalEvent extends Row {
   /** Held for a booking that is not confirmed yet. */
   tentative: boolean;
   orderId: string | null;
+  /** Where it takes place (address or place name). With a place PA works out when to leave. */
+  location?: string | null;
 }
 
 export interface Memo extends Row {
