@@ -2,8 +2,9 @@ import { useEffect, useRef, useState } from 'react';
 import { interpretReply, type RhythmSuggestion, type SuggestionAction } from '../core/rhythms/engine';
 import { applySuggestionAction, suggestionsFor } from '../core/rhythms/touch';
 import { canListen, listen } from '../platform/speech';
-import { hasHandler, runHandoff } from './handoffs';
+import { runHandoff } from './handoffs';
 import { usePA } from './context';
+import { useFlows } from './flows';
 import { Card } from './kit';
 import { MicButton } from './Rhythms';
 
@@ -13,6 +14,7 @@ import { MicButton } from './Rhythms';
  */
 export function RhythmCard({ onOpenProvider, onOpenMe, suggestions }: { onOpenProvider: (id: string) => void; onOpenMe: () => void; suggestions: RhythmSuggestion[] }) {
   const { store, today, refresh } = usePA();
+  const flows = useFlows() ?? undefined;
   const [after, setAfter] = useState<RhythmSuggestion | null>(null);
   const [askPhone, setAskPhone] = useState(false);
   const [phone, setPhone] = useState('');
@@ -32,9 +34,9 @@ export function RhythmCard({ onOpenProvider, onOpenMe, suggestions }: { onOpenPr
       return;
     }
     if (id === 'go' && s.handoff) {
-      if (s.handoff.type === 'contact' && !s.handoff.phone && !hasHandler('contact')) { setAskPhone(true); return; }
+      if (s.handoff.type === 'contact' && !s.handoff.phone) { setAskPhone(true); return; }
       applySuggestionAction(store, s, 'go', today);
-      runHandoff(s.handoff, { store, today, openProvider: onOpenProvider, openMe: onOpenMe, refresh });
+      runHandoff(s.handoff, { store, today, openProvider: onOpenProvider, openMe: onOpenMe, refresh, flows });
       setAfter(s);
       refresh();
       return;
@@ -50,7 +52,7 @@ export function RhythmCard({ onOpenProvider, onOpenMe, suggestions }: { onOpenPr
     setAskPhone(false);
     const fresh = suggestionsFor(store, today).find((x) => x.key === s.key) ?? s;
     applySuggestionAction(store, fresh, 'go', today);
-    if (fresh.handoff) runHandoff(fresh.handoff, { store, today, openProvider: onOpenProvider, openMe: onOpenMe, refresh });
+    if (fresh.handoff) runHandoff(fresh.handoff, { store, today, openProvider: onOpenProvider, openMe: onOpenMe, refresh, flows });
     setAfter(fresh);
     refresh();
   };

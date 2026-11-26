@@ -12,6 +12,8 @@ export interface HandoffCtx {
   /** Opens the "Ich" tab (e.g. to add a provider when none fits). */
   openMe: () => void;
   refresh: () => void;
+  /** App-wide entries into other features (Finder, message composer). Missing in tests: defaults apply. */
+  flows?: import('./flows').Flows;
 }
 
 type HandlerOf<T extends Handoff['type']> = (h: Extract<Handoff, { type: T }>, ctx: HandoffCtx) => void;

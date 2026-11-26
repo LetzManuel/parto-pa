@@ -1,11 +1,13 @@
 import { useEffect, useRef, useState } from 'react';
 import { allEvents } from '../core/calendar/feeds';
 import { checkInOrder, listFor, proposal, spokenSummary, type Outcome } from '../core/favourites/check';
-import { handoffActions, requestText } from '../core/favourites/handoff';
+import { handoffActions, requestText, windowText } from '../core/favourites/handoff';
+import { addAppointment } from '../core/calendar/appointments';
+import { useFlows } from './flows';
+import type { Favourite } from '../core/favourites/model';
 import { KIND_LABEL, KIND_NOUN, type BookingRequest, type FavKind, type Slot } from '../core/favourites/model';
 import { parseRequest } from '../core/favourites/request';
 import { kindWords } from '../core/anbieter/lists';
-import { stamp } from '../core/model';
 import { createOrder, markRequested } from '../core/orders/flow';
 import { addDays, formatShort } from '../core/time/dates';
 import { slotContext } from '../platform/slots';
@@ -78,7 +80,7 @@ export function Finder({ start, onClose }: { start: FinderStart; onClose: () => 
       const len = best.fav.durationMin ?? (req.kind === 'restaurant' ? 120 : 60);
       const m = Number(slot.start.slice(0, 2)) * 60 + Number(slot.start.slice(3)) + len;
       const end = `${String(Math.min(23, Math.floor(m / 60))).padStart(2, '0')}:${String(m >= 24 * 60 ? 59 : m % 60).padStart(2, '0')}`;
-      store.save('event', stamp({ title, date: slot.date, start: slot.start, end, tentative: false, orderId: null }));
+      addAppointment(store, { title, date: slot.date, start: slot.start, end, subject: req.kind === 'salon' ? 'friseur' : null });
       setDone(`Im Kalender: ${formatShort(slot.date, today)} ${slot.start}.`);
     } else {
       const o = createOrder({ title: `${KIND_NOUN[req.kind]} bei ${best.fav.name}`, kind: 'followup', source: 'aus Favoriten prüfen', note: requestText(best.fav, req, today) });
@@ -86,6 +88,22 @@ export function Finder({ start, onClose }: { start: FinderStart; onClose: () => 
       setDone('Angefragt. PA fasst nach, wenn bis übermorgen (Werktage) nichts kommt.');
     }
     refresh();
+  };
+
+  // Babysitter and doctors: ask by message with the shared templates (read back, "senden"), not a bare link.
+  const flows = useFlows();
+  const viaMessage = (f: Favourite, r: BookingRequest) => !!flows && !!f.phone && (r.kind === 'babysitter' || r.kind === 'doctor');
+  const writeMessage = (f: Favourite, r: BookingRequest) => {
+    if (!flows) return;
+    const formal = r.kind !== 'babysitter';
+    flows.openMessage({
+      recipient: { key: `favourite:${f.id}`, name: f.name, formal, phone: f.phone, email: null, channel: r.kind === 'babysitter' ? 'whatsapp' : 'sms', service: r.topic ?? undefined },
+      template: r.kind === 'babysitter' ? 'availability' : 'request', when: windowText(r, today), body: '', voice: true,
+    }, () => {
+      const o = createOrder({ title: `${KIND_NOUN[r.kind]} bei ${f.name}`, kind: 'followup', source: 'aus Meine Anbieter', note: requestText(f, r, today) });
+      store.save('order', markRequested(o, today, f.name));
+      refresh();
+    });
   };
 
   const planCall = () => {
@@ -163,8 +181,9 @@ export function Finder({ start, onClose }: { start: FinderStart; onClose: () => 
             {best.more.length > 0 && <div className="meta">Auch: {best.more.slice(0, 4).map((s) => (s.date === best.slot?.date ? s.start : `${formatShort(s.date, today)} ${s.start}`)).join(', ')}</div>}
             {!best.slot && <div className="say">„{requestText(best.fav, req, today)}“</div>}
             <div className="actions wrap">
-              {handoffActions(best.fav, req, today, best.slot).map((a, i) => (
-                <a key={a.kind} className={`button ${i === 0 ? 'primary big' : ''}`} href={a.url} target={a.kind === 'book' || a.kind === 'web' || a.kind === 'whatsapp' ? '_blank' : undefined} rel="noreferrer">{a.label}</a>
+              {viaMessage(best.fav, req) && <button className="primary big" onClick={() => writeMessage(best.fav, req)}>Nachricht an {best.fav.name.split(' ')[0]}</button>}
+              {handoffActions(best.fav, req, today, best.slot).filter((a) => !(viaMessage(best.fav, req) && (a.kind === 'whatsapp' || a.kind === 'sms'))).map((a, i) => (
+                <a key={a.kind} className={`button ${i === 0 && !viaMessage(best.fav, req) ? 'primary big' : ''}`} href={a.url} target={a.kind === 'book' || a.kind === 'web' || a.kind === 'whatsapp' ? '_blank' : undefined} rel="noreferrer">{a.label}</a>
               ))}
             </div>
             <div className="actions wrap">

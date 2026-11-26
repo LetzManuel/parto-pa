@@ -107,3 +107,16 @@ describe('semi-automatic baskets', () => {
     expect(items).toBe('Milch\nButter\n2 Joghurt');
   });
 });
+
+describe('rhythms → recurring orders', () => {
+  it('proposes a weekly basket after four Friday orders and keeps a no', async () => {
+    const { basketProposals, acceptProposal } = await import('./rhythm');
+    const { stamp } = await import('../model');
+    const list = { ...listFromIntent(parseShopping('Pizza bei Lieferando: Pizza Margherita')!, '2026-10-30'), name: 'Pizza Freitag', state: 'done' as const };
+    const runs = ['2026-11-06', '2026-11-13', '2026-11-20', '2026-10-30'].map((date) => stamp({ listId: list.id, platformId: 'lieferando', date, items: list.items }));
+    const [p] = basketProposals([list], runs, '2026-11-26');
+    expect(p).toMatchObject({ everyN: 1, everyUnit: 'week', weekday: 5, count: 4 });
+    expect(acceptProposal(p, '2026-11-26')).toMatchObject({ everyN: 1, weekday: 5, nextDate: '2026-11-27', state: 'active' });
+    expect(basketProposals([list], runs, '2026-11-26', new Set([list.id]))).toEqual([]);
+  });
+});

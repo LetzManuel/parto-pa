@@ -17,7 +17,8 @@ export function waNumber(p: string): string {
   return d;
 }
 
-function window(req: BookingRequest, ref: ISODate): string {
+/** "am Samstag ab 19 Uhr", "zwischen Mo und Fr zwischen 14:00 und 17:00 Uhr": the asked window as words. */
+export function windowText(req: BookingRequest, ref: ISODate): string {
   const day = req.dateFrom === req.dateTo ? formatShort(req.dateFrom, ref) : `zwischen ${formatShort(req.dateFrom, ref)} und ${formatShort(req.dateTo, ref)}`;
   const time = req.to >= '23:59' ? `ab ${req.from} Uhr` : `zwischen ${req.from} und ${req.to} Uhr`;
   return `${day} ${time}`;
@@ -25,7 +26,7 @@ function window(req: BookingRequest, ref: ISODate): string {
 
 /** The sentence for the call or the message ("Spickzettel"). */
 export function requestText(fav: Favourite, req: BookingRequest, ref: ISODate): string {
-  const w = window(req, ref);
+  const w = windowText(req, ref);
   switch (fav.kind) {
     case 'babysitter': return `Hallo ${fav.name.split(' ')[0]}, hättest du ${w} Zeit zum Babysitten? Liebe Grüße`;
     case 'restaurant': return `Ich hätte gern einen Tisch für ${req.people ?? 2} Personen, ${w}.`;

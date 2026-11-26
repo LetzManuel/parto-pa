@@ -6,10 +6,13 @@ import { textToItems, type ShopIntent } from '../core/shopping/parse';
 import { DEFAULT_ENABLED, defaultPlatform, platform, PLATFORMS } from '../core/shopping/platforms';
 import { formatShort, type Unit } from '../core/time/dates';
 import { shopOrder } from '../core/anbieter/lists';
+import { acceptProposal, basketProposals } from '../core/shopping/rhythm';
 import { usePA } from './context';
 import { Card, Chip, Empty, Field, Section } from './kit';
 
 const META = 'shop.platforms';
+/** Baskets the person said "Nein" to as a recurring order (kept so the proposal does not come back). */
+const NO_RHYTHM = 'shop.rhythm.no';
 const DAYS = ['So', 'Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa'];
 
 export function enabledPlatforms(store: Store): string[] {
@@ -48,9 +51,22 @@ function confirmOrdered(store: Store, l: ShopList, today: string): void {
 export function ShoppingToday({ onOpen }: { onOpen: (id: string) => void }) {
   const { store, today, refresh } = usePA();
   const due = dueLists(store.list('shopList'), today);
-  if (!due.length) return null;
+  const declined = new Set<string>(JSON.parse(store.getMeta(NO_RHYTHM) ?? '[]'));
+  const [proposal] = basketProposals(store.list('shopList'), store.list('shopRun'), today, declined);
+  if (!due.length && !proposal) return null;
+  const decline = (id: string) => { store.setMeta(NO_RHYTHM, JSON.stringify([...declined, id])); refresh(); };
   return (
     <Section title="Einkauf & Essen">
+      {proposal && (
+        <Card tone="accent">
+          <div className="hint-title">{proposal.list.name} regelmäßig?</div>
+          <div className="hint-text">Du hast das {proposal.count}-mal bestellt, etwa {rhythmLabel(proposal)}. Als wiederkehrenden Korb anlegen? PA legt ihn dann einen Tag vorher bereit.</div>
+          <div className="actions">
+            <button className="primary" onClick={() => { store.save('shopList', acceptProposal(proposal, today)); refresh(); }}>Ja, {rhythmLabel(proposal)}</button>
+            <button onClick={() => decline(proposal.list.id)}>Nein</button>
+          </div>
+        </Card>
+      )}
       {due.map((l) => {
         const p = platform(l.platformId);
         const act = (f: () => void) => { f(); refresh(); };

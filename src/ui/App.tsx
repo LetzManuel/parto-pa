@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import type { Store } from '../core/db/store';
 import { Calendar } from './Calendar';
 import { Capture } from './Capture';
@@ -9,6 +9,9 @@ import { Orders } from './Orders';
 import { ProviderSheet } from './ProviderSheet';
 import { Today } from './Today';
 import { BasketSheet } from './Shopping';
+import { FlowsProvider, type Flows, type SentInfo } from './flows';
+import { MessageComposer, type ComposerStart } from './Message';
+import { wireFeatures } from './wiring';
 
 type Tab = 'today' | 'calendar' | 'capture' | 'orders' | 'me';
 
@@ -30,8 +33,18 @@ function Shell() {
   const [basket, setBasket] = useState<string | null>(null);
   // ?finden=1 (home-screen shortcut "Finden") opens the finder and starts listening.
   const [finder, setFinder] = useState<FinderStart | null>(() => (new URLSearchParams(location.search).has('finden') ? {} : null));
-  usePA(); // re-render on data changes
+  const [message, setMessage] = useState<{ start: ComposerStart; onSent?: (i: SentInfo) => void } | null>(null);
+  const { store } = usePA(); // re-render on data changes
+  useEffect(() => wireFeatures(store), [store]);
+  const flows: Flows = useMemo(() => ({
+    openFinder: (start) => { setMessage(null); setFinder(start); },
+    openMessage: (start, onSent) => { setFinder(null); setMessage({ start, onSent }); },
+    openBasket: (id) => setBasket(id),
+    openProvider: (id) => setSheet(id),
+    openMe: () => setTab('me'),
+  }), []);
   return (
+    <FlowsProvider value={flows}>
     <div className="app">
       {import.meta.env.VITE_APP_ENV === 'test' && <div className="test-badge" title="Testumgebung, nur Testdaten">TEST</div>}
       <main>
@@ -52,6 +65,15 @@ function Shell() {
       {basket && <BasketSheet id={basket} onClose={() => setBasket(null)} />}
       {finder && <Finder start={finder} onClose={() => setFinder(null)} />}
       {sheet && <ProviderSheet id={sheet} onClose={() => setSheet(null)} />}
+      {message && (
+        <div className="sheet-backdrop" onClick={() => setMessage(null)}>
+          <div className="sheet" onClick={(e) => e.stopPropagation()}>
+            <div className="sheet-head"><h2>Nachricht</h2><button className="link" onClick={() => setMessage(null)}>Schließen</button></div>
+            <MessageComposer initial={message.start} onClose={() => setMessage(null)} onSent={message.onSent} />
+          </div>
+        </div>
+      )}
     </div>
+    </FlowsProvider>
   );
 }
