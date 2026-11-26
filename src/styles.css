@@ -214,8 +214,31 @@ button.mic.small.on { background: var(--pa); color: var(--pa-ink); border-color:
 :root[data-theme="dark"] .suggest-label, :root[data-theme="dark"] h2 { font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; text-transform: uppercase; letter-spacing: 0.08em; font-size: 0.74rem; }
 :root[data-theme="dark"] .mic:not(.small) { background: var(--pa); color: var(--pa-ink); }
 
-/* Colour carries the distinction (Manuel, 26 Nov 2026: "klar und bunt", variant B: tinted cards). */
-.card[class*=" k-"] { border: 0; background: color-mix(in srgb, var(--k) 13%, var(--surface)); }
-.card[class*=" k-"] .kind-label { display: inline-block; background: var(--k); color: #fff; padding: 4px 8px; border-radius: 3px; font-size: 0.72rem; margin-bottom: 10px; }
-.card[class*=" k-"] button.primary { background: var(--k); border-color: var(--k); color: #fff; }
-.card[class*=" k-"] button:not(.primary) { background: var(--bg); border-color: color-mix(in srgb, var(--k) 35%, var(--surface)); }
+/* Colour carries the distinction (Manuel, 26 Nov 2026: "klar und bunt", variant B, in pastels).
+   Each kind: a pastel fill (--kb) and a stronger pastel (--kp) for the status tag and the main button.
+   Text on both stays navy, so it reads well at arm's length. */
+:root {
+  --kb-vorschlag: #d5f1eb; --kp-vorschlag: #8ad6c6;
+  --kb-frist: #fbdcd9; --kp-frist: #f3a8a1;
+  --kb-warten: #fde7d0; --kp-warten: #f7c28d;
+  --kb-termin: #dce8fb; --kp-termin: #a3c1f3;
+  --kb-person: #ebe0f8; --kp-person: #c9b0ee;
+  --kb-aufgabe: #e5e9f0; --kp-aufgabe: #b8c2d4;
+}
+.card.k-vorschlag { --kb: var(--kb-vorschlag); --kp: var(--kp-vorschlag); } .card.k-frist { --kb: var(--kb-frist); --kp: var(--kp-frist); }
+.card.k-warten { --kb: var(--kb-warten); --kp: var(--kp-warten); } .card.k-termin { --kb: var(--kb-termin); --kp: var(--kp-termin); }
+.card.k-person { --kb: var(--kb-person); --kp: var(--kp-person); } .card.k-aufgabe { --kb: var(--kb-aufgabe); --kp: var(--kp-aufgabe); }
+.card[class*=" k-"] { border: 0; background: var(--kb); }
+.card[class*=" k-"] .kind-label { display: inline-block; background: var(--kp); color: #172a4d; padding: 4px 8px; border-radius: 3px; font-size: 0.72rem; margin-bottom: 10px; }
+.card[class*=" k-"] button.primary { background: var(--kp); border-color: var(--kp); color: #172a4d; }
+.card[class*=" k-"] button:not(.primary) { background: #ffffff; border-color: var(--kp); color: #172a4d; }
+/* Dark mode: the pastel stays for tags and buttons, the card fill is a quiet tint of it. */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .card[class*=" k-"] { background: color-mix(in srgb, var(--kp) 16%, var(--surface)); }
+  :root:not([data-theme="light"]) .card[class*=" k-"] button:not(.primary) { background: var(--bg); color: var(--ink); }
+}
+:root[data-theme="dark"] .card[class*=" k-"] { background: color-mix(in srgb, var(--kp) 16%, var(--surface)); }
+:root[data-theme="dark"] .card[class*=" k-"] button:not(.primary) { background: var(--bg); color: var(--ink); }
+/* "PA erledigt das": the action on every to-do that hands it to PA. Same on every card, teal = PA. */
+button.pa-do, .card[class*=" k-"] button.pa-do { background: var(--pa); border-color: var(--pa); color: #fff; display: inline-flex; align-items: center; gap: 6px; }
+button.pa-do::before { content: "✓"; font-weight: 700; }
