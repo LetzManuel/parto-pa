@@ -2,10 +2,12 @@ import { useState } from 'react';
 import type { Store } from '../core/db/store';
 import type { ShopList } from '../core/model';
 import { applyCommand, dueLists, findList, handoff, listFromIntent, markHanded, markOrdered, parseBasketCommand, readBack, rhythmLabel, skip, UNIT_LABEL } from '../core/shopping/lists';
-import { textToItems, type ShopIntent } from '../core/shopping/parse';
+import { formatItem, textToItems, type ShopIntent, type ShopItem } from '../core/shopping/parse';
+import { plan, placeLabel, shopEntries, type Choice } from '../core/shopping/choose';
+import { applyShopRule, parseShopRule } from '../core/shopping/rules';
+import { entries } from '../core/anbieter/lists';
 import { DEFAULT_ENABLED, defaultPlatform, platform, PLATFORMS } from '../core/shopping/platforms';
-import { formatShort, type Unit } from '../core/time/dates';
-import { shopOrder } from '../core/anbieter/lists';
+import { addDays, formatShort, type Unit } from '../core/time/dates';
 import { acceptProposal, basketProposals } from '../core/shopping/rhythm';
 import { usePA } from './context';
 import { Card, Chip, Empty, Field, Section } from './kit';
@@ -31,15 +33,51 @@ export function openPlatform(store: Store, l: ShopList, today: string): boolean 
   return !!window.open(h.url, '_blank', 'noopener');
 }
 
-/** The basket a spoken order means: a saved one ("das Übliche") or a new draft (not saved yet). */
-export function basketFor(store: Store, intent: ShopIntent, today: string): { list: ShopList | undefined; saved: boolean } {
-  if (intent.reuse) return { list: findList(store.list('shopList'), intent.reuse, store.list('shopRun')), saved: true };
-  // "Meine Anbieter" decides the order; without a list there, the platforms switched on below.
-  const order = shopOrder(store.list('favourite'), intent.kind);
-  const list = listFromIntent(intent, today, order[0]?.platformId ?? defaultPlatform(intent.kind, enabledPlatforms(store))?.id);
-  const own = order.find((o) => o.platformId === list.platformId);
-  return { list: own?.storeUrl ? { ...list, storeUrl: own.storeUrl } : list, saved: false };
+export interface BasketDraft {
+  list: ShopList | undefined;
+  saved: boolean;
+  /** Extra baskets split off by a category rule ("Wein geht an Alfies"), not saved yet. */
+  also: Array<{ list: ShopList; reason: string | null }>;
+  /** Why this place ("deine Nummer 1 für Italienisch", "am Wochenende"). */
+  reason: string | null;
+  /** What "nächstes" switches to. */
+  alternatives: Choice[];
 }
+
+/**
+ * The basket a spoken order means: a saved one ("das Übliche") or a new draft (not saved yet), placed by the
+ * person's rules on "Meine Anbieter" (core/shopping/choose.ts). `pick` = which candidate ("nächstes" = 1).
+ */
+export function basketFor(store: Store, intent: ShopIntent, today: string, pick = 0): BasketDraft {
+  if (intent.reuse) return { list: findList(store.list('shopList'), intent.reuse, store.list('shopRun')), saved: true, also: [], reason: null, alternatives: [] };
+  const fallback = defaultPlatform(intent.kind, enabledPlatforms(store))?.id;
+  const parts = plan({ kind: intent.kind, explicit: intent.platformId, text: intent.text ?? textOf(intent), items: intent.items, date: today, favourites: store.list('favourite'), fallback });
+  const toList = (items: ShopItem[], c: Choice, main: boolean): ShopList => {
+    const l = listFromIntent({ ...intent, items, platformId: c.platformId }, today);
+    return { ...l, storeUrl: c.storeUrl, name: c.name ?? (main ? l.name : `${l.name} ${platform(c.platformId)?.name ?? ''}`.trim()) };
+  };
+  const [main, ...rest] = parts;
+  const all = [main.choice, ...main.alternatives];
+  const chosen = all[Math.min(pick, all.length - 1)];
+  return {
+    list: toList(main.items, chosen, true), saved: false,
+    also: rest.map((r) => ({ list: toList(r.items, r.choice, false), reason: r.choice.reason })),
+    reason: chosen.reason,
+    alternatives: all.filter((c) => c !== chosen),
+  };
+}
+
+/** One spoken sentence for a draft: reason, basket, split-off baskets, question. */
+export function basketSentence(d: BasketDraft, ask: string): string {
+  if (!d.list) return '';
+  const p = platform(d.list.platformId);
+  const why = d.reason ? `${d.reason[0].toUpperCase()}${d.reason.slice(1)}: ` : '';
+  const head = readBack(d.list, p).replace(/ (Soll ich .+ öffnen|Passt die Liste)\?$/, '');
+  const extra = d.also.map((a) => `${textToItems(a.list.items).map((i) => i.name).join(' und ')} kommt extra zu ${platform(a.list.platformId)?.name ?? 'der Liste fürs Geschäft'}${a.reason ? `, ${a.reason}` : ''}.`).join(' ');
+  return `${why}${head}${extra ? ` ${extra}` : ''} ${ask}`.replace(/\s+/g, ' ').trim();
+}
+
+const textOf = (i: ShopIntent) => i.items.map((x) => x.name).join(', ');
 
 function confirmOrdered(store: Store, l: ShopList, today: string): void {
   const { list, run } = markOrdered(l, today);
@@ -107,10 +145,19 @@ export function ShoppingCapture({ intent, onSaved }: { intent: ShopIntent; onSav
     );
   }
 
-  const draft = basketFor(store, intent, today).list!;
+  return <DraftCard intent={intent} onSaved={onSaved} />;
+}
+
+function DraftCard({ intent, onSaved }: { intent: ShopIntent; onSaved: (id: string) => void }) {
+  const { store, today, refresh } = usePA();
+  const [pick, setPick] = useState(0);
+  const d = basketFor(store, intent, today, pick);
+  const draft = d.list!;
   const p = platform(draft.platformId);
+  const choicesAll = [d.alternatives.slice(0, pick), [null], d.alternatives.slice(pick)].flat();
   const save = (open: boolean) => {
     const l = store.save('shopList', draft);
+    for (const a of d.also) store.save('shopList', a.list);
     if (open) openPlatform(store, l, today);
     refresh();
     onSaved(l.id);
@@ -118,9 +165,22 @@ export function ShoppingCapture({ intent, onSaved }: { intent: ShopIntent; onSav
   return (
     <Card tone="accent">
       <div className="hint-title">{draft.name}{p ? ` · ${p.name}` : ' · Liste fürs Geschäft'}{rhythmLabel(draft) ? ` · ${rhythmLabel(draft)}` : ''}</div>
+      {d.reason && <div className="meta">{d.reason[0].toUpperCase() + d.reason.slice(1)}</div>}
       <ul className="list basket">{textToItems(draft.items).map((i, n) => <li key={n}>{[i.qty, i.unit, i.name].filter(Boolean).join(' ')}</li>)}</ul>
+      {d.also.map((a) => (
+        <p key={a.list.id} className="hint-line">
+          Extra zu {platform(a.list.platformId)?.name ?? 'Liste fürs Geschäft'}: {textToItems(a.list.items).map(formatItem).join(', ')}{a.reason ? ` (${a.reason})` : ''}. Liegt danach unter Heute bereit.
+        </p>
+      ))}
+      {choicesAll.length > 1 && (
+        <div className="chips">
+          {choicesAll.map((c, k) => c === null
+            ? <Chip key="cur" active onClick={() => {}}>{draft.name !== 'Einkauf' && draft.name !== 'Essen bestellen' && p ? `${draft.name} · ${p.name}` : p?.name ?? 'Geschäft'}</Chip>
+            : <Chip key={k} onClick={() => setPick(k)}>{placeLabel(c)}</Chip>)}
+        </div>
+      )}
       {intent.platformNote && <p className="hint-line">{intent.platformNote}</p>}
-      {intent.platformId === undefined && p && <p className="hint-line">Keine Plattform genannt, PA nimmt {p.name}.</p>}
+      {intent.platformId === undefined && p && !d.reason && <p className="hint-line">Keine Plattform genannt, PA nimmt {p.name}.</p>}
       <div className="actions">
         {draft.everyN
           ? <button className="primary" onClick={() => save(false)}>Korb anlegen</button>
@@ -249,3 +309,48 @@ export function ShoppingSettings({ onOpen }: { onOpen: (id: string) => void }) {
   );
 }
 
+
+const RATED = 'shop.rated';
+
+/**
+ * After a food order from a ranked restaurant: "Wie war Riva?" One tap (or "Riva war super" by voice) moves it
+ * up or down in its cuisine list, "Nie wieder" removes it. Asked once per order, for two days.
+ */
+export function RestaurantFeedback() {
+  const { store, today, refresh } = usePA();
+  const rated = new Set<string>(JSON.parse(store.getMeta(RATED) ?? '[]'));
+  const lists = store.list('shopList');
+  const favs = store.list('favourite');
+  const run = store.list('shopRun')
+    .filter((r) => !rated.has(r.id) && r.date >= addDays(today, -2))
+    .map((r) => ({ r, l: lists.find((l) => l.id === r.listId) }))
+    .filter((x) => x.l?.kind === 'food')
+    .map((x) => ({ ...x, e: entries(favs, 'food').find((f) => f.system === 'shop' && f.topic && f.name.toLowerCase() === x.l!.name.toLowerCase()) }))
+    .find((x) => x.e);
+  if (!run?.e) return null;
+  const { r, e } = run;
+  const list = shopEntries(favs, 'food', e.topic);
+  const at = list.findIndex((f) => f.id === e.id) + 1;
+  const done = (said: string | null) => {
+    if (said) {
+      const rule = parseShopRule(said, favs);
+      if (rule) applyShopRule(store, rule);
+    }
+    store.setMeta(RATED, JSON.stringify([...rated, r.id].slice(-50)));
+    refresh();
+  };
+  return (
+    <Section title="Wie war's?">
+      <Card tone="accent">
+        <div className="hint-title">{e.name}</div>
+        <div className="hint-text">Deine Nummer {at} für {e.topic}. Sag z. B. „{e.name} war super“ oder tipp:</div>
+        <div className="actions">
+          <button className="primary" onClick={() => done(`${e.name} war super`)}>Super{at > 1 ? ', vorreihen' : ''}</button>
+          <button onClick={() => done(null)}>Passt</button>
+          <button onClick={() => done(`${e.name} war schlecht`)}>Schlecht{at < list.length ? ', zurückreihen' : ''}</button>
+          <button className="danger" onClick={() => done(`Nie wieder ${e.name}`)}>Nie wieder</button>
+        </div>
+      </Card>
+    </Section>
+  );
+}

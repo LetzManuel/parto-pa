@@ -7,7 +7,7 @@ import { MicButton } from './Mic';
 import type { ShopIntent } from '../core/shopping/parse';
 import { readBack } from '../core/shopping/lists';
 import { platform } from '../core/shopping/platforms';
-import { basketFor, openPlatform, ShoppingCapture } from './Shopping';
+import { basketFor, basketSentence, openPlatform, ShoppingCapture } from './Shopping';
 import { stamp, type Order } from '../core/model';
 import { createOrder } from '../core/orders/flow';
 import { createMemory, sourceFromMemo, CATEGORY_LABEL, guessCategory } from '../core/memory/memory';
@@ -103,25 +103,31 @@ export function Capture({ onDone, onOpenBasket, onFind }: { onDone: () => void; 
   });
 
   // Shopping / food: read the basket back, one spoken "ja" saves it and opens the platform.
-  const voiceBasket = (intent: ShopIntent) => {
-    const { list, saved } = basketFor(store, intent, today);
+  const voiceBasket = (intent: ShopIntent, pick = 0) => {
+    const draft = basketFor(store, intent, today, pick);
+    const { list, saved } = draft;
     if (!list) { speak(`Keine Liste ${intent.reuse} gefunden.`); return; }
     const p = platform(list.platformId);
     const recurring = !saved && !!list.everyN;
-    const ask = recurring ? `${readBack(list).replace(/ Passt die Liste\?$/, '')} Korb anlegen?` : readBack(list, p);
-    speak(ask).then(() => hear((yes) => {
+    const ask = recurring ? 'Korb anlegen?' : p ? `Soll ich ${p.name} öffnen?` : 'Passt die Liste?';
+    const more = draft.alternatives.length ? ' Oder sag „nächstes“.' : '';
+    speak(saved ? readBack(list, p) : basketSentence(draft, ask + (pick === 0 ? more : ''))).then(() => hear((yes) => {
+      // "nächstes" / "anderes": the next place on the person's list (Platz 2, 3, …).
+      if (!saved && draft.alternatives.length && /^(nächst|ander|weiter|platz\s*\d|nein,?\s*(das\s+)?(nächst|ander))/i.test(yes.trim())) { voiceBasket(intent, pick + 1); return; }
       const c = parseCommand(yes);
       if (!(c?.type === 'send' || /^(ja|passt|ok|öffnen|bestellen|anlegen|speicher)/i.test(yes.trim()))) {
         setVoiceNote('Nichts gespeichert. Unten ändern oder antippen.');
         return;
       }
       const l = saved ? list : store.save('shopList', list);
+      if (!saved) for (const a of draft.also) store.save('shopList', a.list);
       if (!recurring && p && !openPlatform(store, l, today)) setVoiceNote(`Liste kopiert. Tippe auf „${p.name} öffnen“.`);
       refresh();
       onOpenBasket(l.id);
       setText('');
     }));
   };
+
 
   // Opening the tab starts listening at once: phone in hand, no searching.
   useEffect(() => {

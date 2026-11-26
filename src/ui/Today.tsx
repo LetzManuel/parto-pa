@@ -9,7 +9,7 @@ import { suggestionsFor } from '../core/rhythms/touch';
 import { RhythmCard } from './RhythmCard';
 import { usePA } from './context';
 import { Card, Empty, Section } from './kit';
-import { ShoppingToday } from './Shopping';
+import { RestaurantFeedback, ShoppingToday } from './Shopping';
 import { NextUp } from './NextUp';
 
 export function Today({ onOpenProvider, onOpenBasket, onFind, onOpenMe }: { onOpenProvider: (id: string) => void; onOpenBasket: (id: string) => void; onFind: () => void; onOpenMe: () => void }) {
@@ -65,6 +65,7 @@ export function Today({ onOpenProvider, onOpenBasket, onFind, onOpenMe }: { onOp
       </Section>
 
       <ShoppingToday onOpen={onOpenBasket} />
+      <RestaurantFeedback />
 
       <Section title="Heute im Kalender">
         {b.events.length === 0 ? <Empty>Keine Termine.</Empty> : (

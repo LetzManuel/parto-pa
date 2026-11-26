@@ -7,13 +7,16 @@ import type { Store } from '../db/store';
 import { LIST_LABEL, type Favourite, type ListKind } from '../favourites/model';
 import { parseNumber } from '../templates/when';
 import { ALIASES, PLATFORMS, platform } from '../shopping/platforms';
+import { applyShopRule, parseShopRule, type ShopRule } from '../shopping/rules';
 import { applyMove, entries, newEntry, newKeyword, removeEntry, shopEntry } from './lists';
 
 export type AnbieterCommand =
   | { type: 'move'; kind: ListKind; id: string | null; platformId?: string; name: string; to: number; confirm: string }
   | { type: 'add'; kind: ListKind; name: string; topic: string | null; phone: string | null; platformId?: string; confirm: string }
   | { type: 'remove'; kind: ListKind; id: string; name: string; confirm: string }
-  | { type: 'keyword'; kind: ListKind; word: string; confirm: string };
+  | { type: 'keyword'; kind: ListKind; word: string; confirm: string }
+  /** Order rules and rankings for shops and restaurants (core/shopping/rules.ts). */
+  | { type: 'shop'; kind: ListKind; rule: ShopRule; confirm: string };
 
 /** Spoken list names. Doctors carry their field as topic. */
 const LIST_WORDS: Array<[ListKind, RegExp, string | null]> = [
@@ -86,6 +89,10 @@ export function parseAnbieterCommand(text: string, all: Favourite[]): AnbieterCo
   const s = text.trim().replace(/[.!?]+$/, '');
   let m: RegExpMatchArray | null;
 
+  // Shops first: "Alkohol bestelle ich bei Alfies", "Italienisch: Riva, Da Mario", "Riva war super".
+  const rule = parseShopRule(s, all);
+  if (rule) return { type: 'shop', kind: rule.type === 'platform' ? rule.kinds[0] : 'food', rule, confirm: rule.confirm };
+
   // Keywords: "Stichwort Spitzen schneiden für Friseur", "Nägel gehört zu Kosmetik", "Barber heißt auch Friseur"
   m = s.match(new RegExp(`^(?:neues\\s+)?(?:stichwort|schlagwort|suchwort)\\s+[„"]?(.+?)[“"]?\\s+(?:für|bei|zu|zum|zur)\\s+(?:den\\s+|die\\s+|das\\s+)?${LIST_RE}$`, 'i'))
     ?? s.match(new RegExp(`^[„"]?(.+?)[“"]?\\s+(?:gehört\\s+zu(?:m|r)?|heißt(?:\\s+auch)?|bedeutet|ist\\s+ein\\s+stichwort\\s+für)\\s+(?:den\\s+|die\\s+|das\\s+)?${LIST_RE}$`, 'i'));
@@ -140,6 +147,8 @@ export function parseAnbieterCommand(text: string, all: Favourite[]): AnbieterCo
 export function applyAnbieterCommand(store: Store, c: AnbieterCommand): string {
   const all = store.list('favourite');
   switch (c.type) {
+    case 'shop':
+      return applyShopRule(store, c.rule);
     case 'keyword': {
       const k = newKeyword(all, c.kind, c.word);
       if (k) store.save('favourite', k);

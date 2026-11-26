@@ -26,6 +26,8 @@ export interface ShopIntent {
   everyN?: number;
   everyUnit?: Unit;
   weekday?: number;
+  /** The sentence as said (finds the cuisine: "Bestell Pizza" → Italienisch). */
+  text?: string;
 }
 
 const VERB = /\b(bestell\w*|einkauf\w*|einkaufsliste|kauf(?:e|en)?|besorg\w*|brauch(?:e|en)|liefern|wocheneinkauf|nachbestell\w*)\b/i;
@@ -35,7 +37,7 @@ const WEEKDAYS: Record<string, number> = { sonntag: 0, montag: 1, dienstag: 2, m
 const WD = '(montag|dienstag|mittwoch|donnerstag|freitag|samstag|sonntag)';
 const REUSE = /^(?:bitte\s+)?(?:bestell\w*\s+)?(?:(?:das|den|die)\s+)?(übliche[n]?|wie immer|.+?)\s+(?:nochmal|noch einmal|wieder|wie letztes mal)$|^bestell\w*\s+(?:das\s+)?(übliche|wie immer)$|^bestell\w*\s+(?:den|die|das)\s+(\S+(?:einkauf|liste|korb|bestellung))$/i;
 
-const UNITS = '(l|liter|ml|kg|kilo|g|gramm|dag|stück|stk|packung(?:en)?|pkg|pk|flasche(?:n)?|dose(?:n)?|becher|bund|gl(?:a|ä)s(?:er)?|sack|säcke|netz|tafel(?:n)?|rolle(?:n)?|karton(?:s)?|kiste(?:n)?)';
+const UNITS = '(l|liter|ml|kg|kilo|g|gramm|dag|stück|stk\\.?|packung(?:en)?|pkg\\.?|pk|flasche(?:n)?|fl\\.?|dose(?:n)?|becher|bund|gl(?:a|ä)s(?:er)?|sack|säcke|netz|tafel(?:n)?|rolle(?:n)?|karton(?:s)?|kiste(?:n)?)';
 
 /** Is this a shopping/food order? Messages ("Schreib Anna …") and reminders ("Erinner mich, wenn ich bei Billa bin …") win. */
 export function isShoppingIntent(text: string): boolean {
@@ -55,7 +57,7 @@ export function parseShopping(raw: string): ShopIntent | null {
     return { kind: 'grocery', items: [], reuse: /übliche|wie immer/i.test(name) ? 'übliche' : name.toLowerCase() };
   }
 
-  const out: ShopIntent = { kind: 'grocery', items: [] };
+  const out: ShopIntent = { kind: 'grocery', items: [], text: raw.trim() };
 
   // Platform: "bei gurkerl", "über foodora", "von Billa"
   const plat = s.match(new RegExp(`\\b(?:bei|über|von|auf)\\s+(${ALIAS_RE})\\b`, 'i')) ?? s.match(new RegExp(`\\b(${ALIAS_RE})\\b`, 'i'));
@@ -118,8 +120,8 @@ function normUnit(u: string): string {
   if (t === 'liter') return 'l';
   if (t === 'kilo') return 'kg';
   if (t === 'gramm') return 'g';
-  if (t === 'stück' || t === 'stk') return 'Stk.';
-  if (t.startsWith('packung') || t === 'pkg' || t === 'pk') return 'Pkg.';
+  if (t.startsWith('stück') || t.startsWith('stk')) return 'Stk.';
+  if (t.startsWith('packung') || t.startsWith('pkg') || t === 'pk') return 'Pkg.';
   return t.startsWith('fl') ? 'Fl.' : u;
 }
 

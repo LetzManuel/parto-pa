@@ -116,6 +116,12 @@ Lieferando, Wolt, Alfies. SPAR/INTERSPAR and HOFER no longer deliver groceries, 
 None of them has a public customer ordering API (Lieferando, foodora and Wolt only offer merchant/courier APIs).
 gurkerl runs an official MCP server (`https://mcp.gurkerl.at/mcp`, OAuth with the user's gurkerl account) with search and
 cart, so PA can later fill the gurkerl cart directly; the order is still sent in gurkerl. PA never orders or pays itself.
+
+Rules and rankings (on „Meine Anbieter“, `src/core/shopping/choose.ts`, `rules.ts`): „Alkohol bestelle ich bei Alfies“,
+„Am Wochenende bei foodora“, „Italienisch: Riva, Da Mario, Bella Napoli“. A basket goes to: the platform said aloud ›
+category/cuisine rule › weekend/weekday rule › general order › platforms switched on. Mixed baskets are split
+(„Rotwein kommt extra zu Alfies“), „nächstes“ switches to the next place. After a food order PA asks „Wie war's?“;
+„Riva war super“ / „war schlecht“ / „nie wieder“ moves the restaurant up, down or off its list.
 ## Appointment reminders and leave-by times
 
 PA reminds of every timed appointment (own and subscribed calendars). With a place it works out when to leave:

@@ -4,6 +4,15 @@ import { applyAnbieterCommand, parseAnbieterCommand, type AnbieterCommand } from
 import { isFavKind, LIST_LABEL, MAX_PER_LIST, type FavKind, type Favourite, type ListKind, type SystemId } from '../core/favourites/model';
 import { detectSystem, refFromUrl, systemInfo } from '../core/favourites/systems';
 import { platform, PLATFORMS } from '../core/shopping/platforms';
+import { CATEGORIES, CUISINES, normalizeTopic, shopEntries, WEEKEND, WORKDAYS } from '../core/shopping/choose';
+
+/** Headings of the shop lists: general order, then rules by category/cuisine and time. */
+function shopTopicLabel(kind: ListKind, topic: string): string {
+  if (!topic) return kind === 'food' ? 'Essen allgemein' : 'Einkauf allgemein';
+  if (topic === WEEKEND) return 'Am Wochenende';
+  if (topic === WORKDAYS) return 'Unter der Woche';
+  return kind === 'food' ? `${topic} (Rangliste)` : `${topic} (Regel)`;
+}
 import { canListen, listen, speak } from '../platform/speech';
 import { usePA } from './context';
 import { Card, Chip, Empty, Field, Section } from './kit';
@@ -64,7 +73,9 @@ export function Anbieter({ onCheck }: { onCheck: (kind: FavKind, topic: string |
     if (shop) {
       const pid = f.platformId || platforms[0]?.id;
       if (!pid) return;
-      store.save('favourite', shopEntry(all, kind as 'grocery' | 'food', pid, f.bookingUrl.trim() || null, f.name.trim() || undefined));
+      const k = kind as 'grocery' | 'food';
+      const topic = f.topic.trim() ? normalizeTopic(f.topic) : null;
+      store.save('favourite', { ...shopEntry(all, k, pid, f.bookingUrl.trim() || null, f.name.trim() || undefined), topic, priority: shopEntries(all, k, topic).length + 1 });
     } else {
       const ref = f.systemRef.trim() || refFromUrl(sys, f.bookingUrl);
       store.save('favourite', newEntry(all, {
@@ -93,7 +104,9 @@ export function Anbieter({ onCheck }: { onCheck: (kind: FavKind, topic: string |
         {canListen() && <MicButton active={listening} onClick={mic} label={listening ? 'Zuhören beenden' : 'Anbieter per Sprache ändern'} />}
         <div className="voice-hint">
           {note ?? (listening ? 'Ich höre …' : 'Reihenfolge bestimmt, wo PA zuerst bucht oder bestellt.')}
-          <div className="meta">„gurkerl zuerst“ · „Neuer Friseur Salon Lisa 01 234 56 78“ · „Stichwort Spitzen für Friseur“</div>
+          <div className="meta">{shop
+            ? '„gurkerl zuerst“ · „Alkohol bestelle ich bei Alfies“ · „Am Wochenende bei foodora“ · „Italienisch: Riva, Da Mario“ · „Riva war super“'
+            : '„gurkerl zuerst“ · „Neuer Friseur Salon Lisa 01 234 56 78“ · „Stichwort Spitzen für Friseur“'}</div>
         </div>
       </div>
       {cmd && (
@@ -111,7 +124,7 @@ export function Anbieter({ onCheck }: { onCheck: (kind: FavKind, topic: string |
       {groups(all, kind).map(({ topic, list }) => (
         <div key={topic} className="fav-group">
           <div className="fav-head">
-            <span className="strong">{topic || LIST_LABEL[kind]}</span>
+            <span className="strong">{shop ? shopTopicLabel(kind, topic) : topic || LIST_LABEL[kind]}</span>
             {fav && <button className="link" onClick={() => onCheck(kind as FavKind, topic || null)}>Jetzt prüfen</button>}
           </div>
           <Ordered list={list} subtitle={subtitle}
@@ -130,6 +143,12 @@ export function Anbieter({ onCheck }: { onCheck: (kind: FavKind, topic: string |
               </select>
             </Field>
             <Field label="Name (optional)"><input value={f.name} onChange={(e) => set({ name: e.target.value })} placeholder={kind === 'food' ? 'Pizzeria da Mario' : 'BILLA Praterstraße'} /></Field>
+            <Field label={kind === 'food' ? 'Küche oder Zeit (optional, eigene Rangliste)' : 'Kategorie oder Zeit (optional, eigene Regel)'}>
+              <input list={`topics-${kind}`} value={f.topic} onChange={(e) => set({ topic: e.target.value })} placeholder={kind === 'food' ? 'Italienisch' : 'Alkohol'} />
+              <datalist id={`topics-${kind}`}>
+                {[...(kind === 'food' ? CUISINES : CATEGORIES).map(([c]) => c), WEEKEND, WORKDAYS].map((t) => <option key={t} value={t} />)}
+              </datalist>
+            </Field>
             <Field label="Eigene Shop-Seite auf der Plattform (optional)"><input value={f.bookingUrl} onChange={(e) => set({ bookingUrl: e.target.value })} placeholder="https://www.foodora.at/restaurant/…" /></Field>
           </> : <>
             <Field label="Name"><input value={f.name} onChange={(e) => set({ name: e.target.value })} placeholder={kind === 'babysitter' ? 'Lena Huber' : kind === 'doctor' ? 'Dr. Muster' : kind === 'beauty' ? 'Studio Nails' : 'Salon Haarmonie'} /></Field>

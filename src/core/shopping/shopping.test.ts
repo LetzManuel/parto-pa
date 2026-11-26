@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { isShoppingIntent, parseShopping } from './parse';
+import { isShoppingIntent, itemsToText, parseShopping, textToItems } from './parse';
 import { applyCommand, dueLists, findList, handoff, listFromIntent, markHanded, markOrdered, parseBasketCommand, readBack, rhythmLabel, skip } from './lists';
 import { platform } from './platforms';
 
@@ -23,6 +23,9 @@ describe('spoken orders', () => {
     expect(b.platformNote).toMatch(/foodora/);
     expect(b.items[1]).toEqual({ qty: 2, unit: 'Pkg.', name: 'Nudeln' });
     expect(parseShopping('Kauf bei Interspar Kaffee')!.platformId).toBeNull();
+    // Stored lines read back the same way ("2 Fl. Rotwein" stays two bottles).
+    expect(textToItems(itemsToText(parseShopping('Bestell 2 Flaschen Rotwein und 3 Packungen Reis')!.items)))
+      .toEqual([{ qty: 2, unit: 'Fl.', name: 'Rotwein' }, { qty: 3, unit: 'Pkg.', name: 'Reis' }]);
   });
 
   it('turns a rhythm into a recurring basket', () => {
