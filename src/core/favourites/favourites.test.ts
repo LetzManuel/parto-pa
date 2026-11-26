@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { stamp, type CalEvent } from '../model';
 import { resmio, salonized, ticketmaster, viennaLocal, type AdapterContext } from './adapters';
 import { checkInOrder, freeForMe, listFor, proposal, spokenSummary } from './check';
-import { handoffActions, requestText, waNumber } from './handoff';
+import { handoffActions, requestText } from './handoff';
 import type { Favourite } from './model';
 import { parseRequest } from './request';
 import { detectSystem, findBookingLinks, refFromUrl } from './systems';
@@ -158,9 +158,11 @@ describe('handoff', () => {
   it('prepares WhatsApp, SMS and call for a babysitter', () => {
     const req = parseRequest('Babysitter Samstag ab 19 Uhr', REF)!;
     const f = fav({ name: 'Lena Huber', kind: 'babysitter', phone: '0664 123 45 67' });
-    expect(waNumber('0664 123 45 67')).toBe('436641234567');
-    expect(requestText(f, req, REF)).toBe('Hallo Lena, hättest du Sa., 28.11. ab 19:00 Uhr Zeit zum Babysitten? Liebe Grüße');
-    expect(handoffActions(f, req, REF).map((a) => a.kind)).toEqual(['whatsapp', 'sms', 'call']);
+    const text = requestText(f, req, REF, 'Manuel Letz');
+    expect(text).toContain('hättest du übermorgen ab 19:00 Uhr Zeit? Es geht ums Babysitten.');
+    const links = handoffActions(f, req, REF, null, 'Manuel Letz');
+    expect(links.map((a) => a.kind)).toEqual(['whatsapp', 'sms', 'call']);
+    expect(links[0].url).toBe(`https://wa.me/436641234567?text=${encodeURIComponent(text)}`);
   });
 
   it('links a doctor\'s booking platform, else the call', () => {

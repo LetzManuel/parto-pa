@@ -1,5 +1,6 @@
 // The last step is always the person's: PA opens the booking page, the phone app or a prepared message.
-// The message text is deliberately plain; the shared message templates (e-mail/SMS/WhatsApp) will replace it.
+// Messages to people (babysitters) use the shared templates, so they look like every other PA message.
+import { compose, formatSpokenDate, sendLink, type Recipient } from '../messages';
 import { formatShort, type ISODate } from '../time/dates';
 import type { BookingRequest, Favourite, Slot } from './model';
 import { detectSystem, normalizeUrl, systemInfo } from './systems';
@@ -8,15 +9,6 @@ export type HandoffKind = 'book' | 'web' | 'call' | 'whatsapp' | 'sms';
 export interface HandoffAction { kind: HandoffKind; label: string; url: string }
 
 const phoneDigits = (p: string) => p.replace(/[^\d+]/g, '');
-/** wa.me wants the number in international form without "+" (Austrian 0664… → 43664…). */
-export function waNumber(p: string): string {
-  const d = phoneDigits(p);
-  if (d.startsWith('+')) return d.slice(1);
-  if (d.startsWith('00')) return d.slice(2);
-  if (d.startsWith('0')) return '43' + d.slice(1);
-  return d;
-}
-
 /** "am Samstag ab 19 Uhr", "zwischen Mo und Fr zwischen 14:00 und 17:00 Uhr": the asked window as words. */
 export function windowText(req: BookingRequest, ref: ISODate): string {
   const day = req.dateFrom === req.dateTo ? formatShort(req.dateFrom, ref) : `zwischen ${formatShort(req.dateFrom, ref)} und ${formatShort(req.dateTo, ref)}`;
@@ -24,11 +16,26 @@ export function windowText(req: BookingRequest, ref: ISODate): string {
   return `${day} ${time}`;
 }
 
+export function recipientOf(fav: Favourite): Recipient {
+  return { key: `favourite:${fav.id}`, name: fav.name, contactPerson: fav.name.split(' ')[0], formal: false, phone: fav.phone, channel: 'whatsapp' };
+}
+
+/** "am Samstag, 28. November ab 19:00 Uhr": the time for a message, written out. */
+function spokenWindow(req: BookingRequest, ref: ISODate): string {
+  const day = req.dateFrom === req.dateTo ? formatSpokenDate(req.dateFrom, ref) : `zwischen ${formatShort(req.dateFrom, ref)} und ${formatShort(req.dateTo, ref)}`;
+  return `${day} ${req.to >= '23:59' ? `ab ${req.from} Uhr` : `zwischen ${req.from} und ${req.to} Uhr`}`;
+}
+
+/** A babysitter request in the shared "availability" template (du form). */
+export function babysitterMessage(fav: Favourite, req: BookingRequest, ref: ISODate, sender: string, channel: 'whatsapp' | 'sms') {
+  return compose({ template: 'availability', recipient: recipientOf(fav), channel, body: 'Es geht ums Babysitten.', sender: { name: sender }, when: spokenWindow(req, ref) });
+}
+
 /** The sentence for the call or the message ("Spickzettel"). */
-export function requestText(fav: Favourite, req: BookingRequest, ref: ISODate): string {
+export function requestText(fav: Favourite, req: BookingRequest, ref: ISODate, sender = ''): string {
   const w = windowText(req, ref);
   switch (fav.kind) {
-    case 'babysitter': return `Hallo ${fav.name.split(' ')[0]}, hättest du ${w} Zeit zum Babysitten? Liebe Grüße`;
+    case 'babysitter': return babysitterMessage(fav, req, ref, sender, 'whatsapp').text;
     case 'restaurant': return `Ich hätte gern einen Tisch für ${req.people ?? 2} Personen, ${w}.`;
     case 'doctor': return `Ich hätte gern einen Termin${req.topic ? ` (${req.topic})` : ''}, am liebsten ${w}.`;
     case 'tickets': return `Ich suche ${req.people ?? 1} ${req.people === 1 ? 'Ticket' : 'Tickets'}${req.keyword ? ` für ${req.keyword}` : ''}, ${w}.`;
@@ -37,16 +44,17 @@ export function requestText(fav: Favourite, req: BookingRequest, ref: ISODate): 
 }
 
 /** One-tap ways to finish. With a slot, its deep link comes first. */
-export function handoffActions(fav: Favourite, req: BookingRequest, ref: ISODate, slot?: Slot | null): HandoffAction[] {
+export function handoffActions(fav: Favourite, req: BookingRequest, ref: ISODate, slot?: Slot | null, sender = ''): HandoffAction[] {
   const out: HandoffAction[] = [];
-  const text = requestText(fav, req, ref);
   const web = slot?.url ?? normalizeUrl(fav.bookingUrl);
   const sys = systemInfo(fav.system) ?? detectSystem(fav.bookingUrl);
   if (web) out.push({ kind: slot ? 'book' : 'web', label: slot ? 'Jetzt buchen' : sys ? `Auf ${sys.label} ansehen` : 'Website öffnen', url: web });
   if (fav.phone) {
     if (fav.kind === 'babysitter') {
-      out.push({ kind: 'whatsapp', label: 'WhatsApp', url: `https://wa.me/${waNumber(fav.phone)}?text=${encodeURIComponent(text)}` });
-      out.push({ kind: 'sms', label: 'SMS', url: `sms:${phoneDigits(fav.phone)}?body=${encodeURIComponent(text)}` });
+      for (const channel of ['whatsapp', 'sms'] as const) {
+        const url = sendLink(channel, fav, babysitterMessage(fav, req, ref, sender, channel));
+        if (url) out.push({ kind: channel, label: channel === 'whatsapp' ? 'WhatsApp' : 'SMS', url });
+      }
     }
     out.push({ kind: 'call', label: 'Anrufen', url: `tel:${phoneDigits(fav.phone)}` });
   }
