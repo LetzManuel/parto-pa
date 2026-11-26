@@ -2,7 +2,7 @@ import { useState } from 'react';
 import type { Store } from '../core/db/store';
 import type { ShopList } from '../core/model';
 import { applyCommand, dueLists, findList, handoff, listFromIntent, markHanded, markOrdered, parseBasketCommand, readBack, rhythmLabel, skip, UNIT_LABEL } from '../core/shopping/lists';
-import { parseShopping, textToItems, type ShopIntent } from '../core/shopping/parse';
+import { textToItems, type ShopIntent } from '../core/shopping/parse';
 import { DEFAULT_ENABLED, defaultPlatform, platform, PLATFORMS } from '../core/shopping/platforms';
 import { formatShort, type Unit } from '../core/time/dates';
 import { usePA } from './context';
@@ -15,12 +15,22 @@ export function enabledPlatforms(store: Store): string[] {
   try { return JSON.parse(store.getMeta(META) ?? 'null') ?? DEFAULT_ENABLED; } catch { return DEFAULT_ENABLED; }
 }
 
-/** Copy the list, open the platform, remember it. The user orders there; PA never buys. */
-function openPlatform(store: Store, l: ShopList, today: string): void {
+/**
+ * Copy the list, open the platform, remember it. The user orders there; PA never buys.
+ * Returns false when the browser blocked the new window (spoken "ja" is no tap), so the screen offers a button.
+ */
+export function openPlatform(store: Store, l: ShopList, today: string): boolean {
   const h = handoff(l);
   navigator.clipboard?.writeText(h.text).catch(() => { /* no clipboard: list is visible on screen */ });
-  if (h.url) window.open(h.url, '_blank', 'noopener');
   store.save('shopList', markHanded(l, today));
+  if (!h.url) return true;
+  return !!window.open(h.url, '_blank', 'noopener');
+}
+
+/** The basket a spoken order means: a saved one ("das Übliche") or a new draft (not saved yet). */
+export function basketFor(store: Store, intent: ShopIntent, today: string): { list: ShopList | undefined; saved: boolean } {
+  if (intent.reuse) return { list: findList(store.list('shopList'), intent.reuse, store.list('shopRun')), saved: true };
+  return { list: listFromIntent(intent, today, defaultPlatform(intent.kind, enabledPlatforms(store))?.id), saved: false };
 }
 
 function confirmOrdered(store: Store, l: ShopList, today: string): void {
@@ -57,10 +67,9 @@ export function ShoppingToday({ onOpen }: { onOpen: (id: string) => void }) {
   );
 }
 
-/** Capture: a spoken order becomes a basket. Returns null when the text is not a shopping order. */
+/** Capture: a spoken or typed order becomes a basket, shown before anything is saved. */
 export function ShoppingCapture({ intent, onSaved }: { intent: ShopIntent; onSaved: (id: string) => void }) {
   const { store, today, refresh } = usePA();
-  const enabled = enabledPlatforms(store);
 
   if (intent.reuse) {
     const found = findList(store.list('shopList'), intent.reuse, store.list('shopRun'));
@@ -77,8 +86,7 @@ export function ShoppingCapture({ intent, onSaved }: { intent: ShopIntent; onSav
     );
   }
 
-  const fallback = defaultPlatform(intent.kind, enabled)?.id;
-  const draft = listFromIntent(intent, today, fallback);
+  const draft = basketFor(store, intent, today).list!;
   const p = platform(draft.platformId);
   const save = (open: boolean) => {
     const l = store.save('shopList', draft);
@@ -220,4 +228,3 @@ export function ShoppingSettings({ onOpen }: { onOpen: (id: string) => void }) {
   );
 }
 
-export { parseShopping };

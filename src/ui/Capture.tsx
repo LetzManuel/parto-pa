@@ -4,6 +4,10 @@ import { formatShort } from '../core/time/dates';
 import { canListen, listen, speak, stopSpeaking } from '../platform/speech';
 import { MessageComposer, useRecipients, type ComposerStart } from './Message';
 import { MicButton } from './Mic';
+import { isShoppingIntent, parseShopping } from '../core/shopping/parse';
+import { readBack } from '../core/shopping/lists';
+import { platform } from '../core/shopping/platforms';
+import { basketFor, openPlatform, ShoppingCapture } from './Shopping';
 import { stamp, type Order } from '../core/model';
 import { createOrder } from '../core/orders/flow';
 import { createMemory, sourceFromMemo, CATEGORY_LABEL, guessCategory } from '../core/memory/memory';
@@ -18,7 +22,7 @@ const UNITS: Array<[Unit, string]> = [['week', 'Wochen'], ['month', 'Monate'], [
  * The microphone tab: say anything. "Schreib Anna, dass …" becomes a message, everything else a memo that a
  * fixed template turns into an order. Nothing is saved or sent before a spoken or tapped confirmation.
  */
-export function Capture({ onDone }: { onDone: () => void }) {
+export function Capture({ onDone, onOpenBasket }: { onDone: () => void; onOpenBasket: (id: string) => void }) {
   const { store, today, refresh } = usePA();
   const recipients = useRecipients();
   const [text, setText] = useState('');
@@ -51,6 +55,7 @@ export function Capture({ onDone }: { onDone: () => void }) {
       return;
     }
     setText(said); setEdit({}); setPicked(null);
+    if (isShoppingIntent(said)) { voiceBasket(said); return; }
     const [best] = suggest(said, today);
     if (best && best.confidence >= 0.85) {
       const label = TEMPLATES.find((t) => t.id === best.template)!.label;
@@ -65,6 +70,29 @@ export function Capture({ onDone }: { onDone: () => void }) {
     }
   });
 
+  // Shopping / food: read the basket back, one spoken "ja" saves it and opens the platform.
+  const voiceBasket = (said: string) => {
+    const intent = parseShopping(said);
+    if (!intent) return;
+    const { list, saved } = basketFor(store, intent, today);
+    if (!list) { speak(`Keine Liste ${intent.reuse} gefunden.`); return; }
+    const p = platform(list.platformId);
+    const recurring = !saved && !!list.everyN;
+    const ask = recurring ? `${readBack(list).replace(/ Passt die Liste\?$/, '')} Korb anlegen?` : readBack(list, p);
+    speak(ask).then(() => hear((yes) => {
+      const c = parseCommand(yes);
+      if (!(c?.type === 'send' || /^(ja|passt|ok|öffnen|bestellen|anlegen|speicher)/i.test(yes.trim()))) {
+        setVoiceNote('Nichts gespeichert. Unten ändern oder antippen.');
+        return;
+      }
+      const l = saved ? list : store.save('shopList', list);
+      if (!recurring && p && !openPlatform(store, l, today)) setVoiceNote(`Liste kopiert. Tippe auf „${p.name} öffnen“.`);
+      refresh();
+      onOpenBasket(l.id);
+      setText('');
+    }));
+  };
+
   // Opening the tab starts listening at once: phone in hand, no searching.
   useEffect(() => {
     if (canListen()) start();
@@ -72,6 +100,7 @@ export function Capture({ onDone }: { onDone: () => void }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  const shopIntent = useMemo(() => (isShoppingIntent(text) ? parseShopping(text) : null), [text]);
   const suggestions = useMemo(() => suggest(text, today), [text, today]);
   const base = suggestions.find((s) => s.template === picked) ?? (picked ? { template: picked, title: text, dueDate: null, confidence: 0 } : suggestions[0]);
   const s: Suggestion | undefined = base ? { ...base, ...edit } as Suggestion : undefined;
@@ -117,7 +146,7 @@ export function Capture({ onDone }: { onDone: () => void }) {
           <MicButton active={listening} onClick={() => (listening ? stopRef.current() : start())} />
           <div className="voice-hint">
             {voiceNote ?? (listening ? 'Ich höre …' : 'Tippen und sprechen')}
-            <div className="meta">„Schreib Studio Nails, dass ich morgen 10 Minuten später komme“ · „Erinner mich morgen an die Steuer“</div>
+            <div className="meta">„Schreib Studio Nails, dass ich morgen 10 Minuten später komme“ · „Erinner mich morgen an die Steuer“ · „Bestell bei gurkerl Milch und Eier“</div>
           </div>
         </div>
       )}
@@ -131,6 +160,8 @@ export function Capture({ onDone }: { onDone: () => void }) {
         onChange={(e) => { setText(e.target.value); setEdit({}); setPicked(null); }}
       />
       <p className="hint-line">PA erkennt feste Formen direkt auf dem Gerät, ohne KI.</p>
+      {shopIntent && <ShoppingCapture intent={shopIntent} onSaved={(id) => { setText(''); onOpenBasket(id); }} />}
+      {!shopIntent && <>
 
       <div className="chips">
         {TEMPLATES.map((t) => <Chip key={t.id} active={tpl === t.id} onClick={() => choose(t.id)}>{t.label}</Chip>)}
@@ -179,6 +210,7 @@ export function Capture({ onDone }: { onDone: () => void }) {
         <button disabled={!text.trim()} onClick={save} hidden={!!tpl}>Als Notiz speichern</button>
         <button className="primary" disabled={!text.trim() || !tpl || (tpl !== 'location' && tpl !== 'recurring' && !s?.dueDate)} onClick={save}>Speichern</button>
       </div>
+      </>}
     </div>
   );
 }

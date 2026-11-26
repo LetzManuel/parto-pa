@@ -7,8 +7,9 @@ import { DEADLINE_KINDS } from '../core/deadlines/deadlines';
 import { runAction } from './actions';
 import { usePA } from './context';
 import { Card, Empty, Section } from './kit';
+import { ShoppingToday } from './Shopping';
 
-export function Today({ onOpenProvider }: { onOpenProvider: (id: string) => void }) {
+export function Today({ onOpenProvider, onOpenBasket }: { onOpenProvider: (id: string) => void; onOpenBasket: (id: string) => void }) {
   const { store, today, refresh } = usePA();
   const b = buildBriefing({
     orders: store.list('order'), deadlines: store.list('deadline'), providers: store.list('provider'),
@@ -50,6 +51,8 @@ export function Today({ onOpenProvider }: { onOpenProvider: (id: string) => void
           </details>
         )}
       </Section>
+
+      <ShoppingToday onOpen={onOpenBasket} />
 
       <Section title="Heute im Kalender">
         {b.events.length === 0 ? <Empty>Keine Termine.</Empty> : (

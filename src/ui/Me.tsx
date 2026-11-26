@@ -8,8 +8,9 @@ import { Empty, Field, Section } from './kit';
 import { syncProviderOrder } from './providers';
 import { loadDemo } from './demo';
 import { Account } from './Account';
+import { ShoppingSettings } from './Shopping';
 
-export function Me({ onOpenProvider }: { onOpenProvider: (id: string) => void }) {
+export function Me({ onOpenProvider, onOpenBasket }: { onOpenProvider: (id: string) => void; onOpenBasket: (id: string) => void }) {
   const { store, refresh } = usePA();
   const [name, setName] = useState(store.getMeta('name') ?? '');
   const [sure, setSure] = useState(false);
@@ -25,6 +26,7 @@ export function Me({ onOpenProvider }: { onOpenProvider: (id: string) => void })
         </div>
       </Section>
       <Providers onOpen={onOpenProvider} />
+      <ShoppingSettings onOpen={onOpenBasket} />
       <Memory />
       <Section title="Daten">
         <div className="actions wrap">

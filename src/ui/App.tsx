@@ -7,6 +7,7 @@ import { Me } from './Me';
 import { Orders } from './Orders';
 import { ProviderSheet } from './ProviderSheet';
 import { Today } from './Today';
+import { BasketSheet } from './Shopping';
 
 type Tab = 'today' | 'calendar' | 'capture' | 'orders' | 'me';
 
@@ -25,16 +26,17 @@ export function App({ store }: { store: Store }) {
 function Shell() {
   const [tab, setTab] = useState<Tab>(() => (new URLSearchParams(location.search).get('tab') as Tab) || 'today');
   const [sheet, setSheet] = useState<string | null>(null);
+  const [basket, setBasket] = useState<string | null>(null);
   usePA(); // re-render on data changes
   return (
     <div className="app">
       {import.meta.env.VITE_APP_ENV === 'test' && <div className="test-badge" title="Testumgebung, nur Testdaten">TEST</div>}
       <main>
-        {tab === 'today' && <Today onOpenProvider={setSheet} />}
+        {tab === 'today' && <Today onOpenProvider={setSheet} onOpenBasket={setBasket} />}
         {tab === 'calendar' && <Calendar />}
-        {tab === 'capture' && <Capture onDone={() => setTab('orders')} />}
+        {tab === 'capture' && <Capture onDone={() => setTab('orders')} onOpenBasket={(id) => { setTab('today'); setBasket(id); }} />}
         {tab === 'orders' && <Orders />}
-        {tab === 'me' && <Me onOpenProvider={setSheet} />}
+        {tab === 'me' && <Me onOpenProvider={setSheet} onOpenBasket={setBasket} />}
       </main>
       <nav className="tabbar">
         {TABS.map(([id, label, d]) => (
@@ -44,6 +46,7 @@ function Shell() {
           </button>
         ))}
       </nav>
+      {basket && <BasketSheet id={basket} onClose={() => setBasket(null)} />}
       {sheet && <ProviderSheet id={sheet} onClose={() => setSheet(null)} />}
     </div>
   );

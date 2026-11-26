@@ -30,6 +30,7 @@ src/core/        logic without UI, unit-tested
   providers/     call cheat sheet, mailto/tel/booking links (PA never sends or calls itself)
   messages/      dictated messages: standard templates (Sie/du), clean-up of spoken text, voice commands,
                  mailto / sms: / wa.me links. Public API in messages/index.ts, reused by other features
+  shopping/      groceries and food: spoken orders, baskets with a rhythm, hand-over to the platform
   calendar/      free windows (times only, never other appointments' content)
   db/            local SQLite schema (sql.js) and Store
 src/ui/          React screens: Heute, Kalender, + (Memo), Aufträge/Fristen, Ich
@@ -68,3 +69,17 @@ Set `VITE_SUPABASE_URL` and `VITE_SUPABASE_PUBLISHABLE_KEY` (in `.env.local`, no
 Sync (`src/core/sync/engine.ts`): rows changed on the device are pushed, rows the cloud stamped since the last pull
 (`synced_at`) are pulled; the newer `updated_at` wins on both sides (`pa_keep_newer` trigger, migration 0002).
 On first sign-in the device's rows move into the person's personal space (`ensure_personal_space`).
+
+## Einkauf & Essen bestellen
+
+Say „Bestell bei gurkerl 2 Liter Milch, 6 Eier und Brot“, „Jeden Freitag Wocheneinkauf bei gurkerl: …“,
+„Bestell Pizza Margherita bei Lieferando“ or „Bestell das Übliche“. PA builds the basket on the device (no AI), reads it
+back and asks once. „Ja“ copies the list and opens the platform (saved favourite shop/restaurant or start page); the user
+orders and pays there and taps „Bestellt“. Recurring baskets show up on Heute a day before their date (semi-automatic).
+Spoken edits on an open basket: „noch Butter dazu“, „ohne Eier“, „diesmal nicht“, „bestellt“.
+
+Platforms (status 26 Nov 2026, `src/core/shopping/platforms.ts`): gurkerl, foodora (also BILLA, MPREIS Innsbruck),
+Lieferando, Wolt, Alfies. SPAR/INTERSPAR and HOFER no longer deliver groceries, BILLA's own delivery ended in Jan 2026.
+None of them has a public customer ordering API (Lieferando, foodora and Wolt only offer merchant/courier APIs).
+gurkerl runs an official MCP server (`https://mcp.gurkerl.at/mcp`, OAuth with the user's gurkerl account) with search and
+cart, so PA can later fill the gurkerl cart directly; the order is still sent in gurkerl. PA never orders or pays itself.

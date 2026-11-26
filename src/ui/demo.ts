@@ -5,6 +5,8 @@ import { stamp, type Provider } from '../core/model';
 import { createOrder, markRequested } from '../core/orders/flow';
 import { addDays, addMonths, today as todayISO } from '../core/time/dates';
 import { syncProviderOrder } from './providers';
+import { listFromIntent } from '../core/shopping/lists';
+import { parseShopping } from '../core/shopping/parse';
 
 /** Sample data for pilot demos, relative to today. */
 export function loadDemo(store: Store, ref = todayISO()): void {
@@ -30,6 +32,10 @@ export function loadDemo(store: Store, ref = todayISO()): void {
   store.save('deadline', createDeadline({ kind: 'pickerl', title: '§57a-Pickerl Golf', dueDate: addDays(ref, 20) }));
   store.save('deadline', createDeadline({ kind: 'passport', dueDate: addMonths(ref, 5) }));
   store.save('deadline', createDeadline({ kind: 'contract', title: 'Fitnessstudio kündbar bis', dueDate: addDays(ref, 45) }));
+  // Wocheneinkauf ready for tomorrow (prepared a day ahead), and a saved pizza order.
+  const week = listFromIntent(parseShopping('Jeden Samstag Wocheneinkauf bei gurkerl: 2 l Milch, 10 Eier, Bananen, Vollkornbrot, Butter, Joghurt')!, ref);
+  store.save('shopList', { ...week, weekday: null, nextDate: addDays(ref, 1) });
+  store.save('shopList', { ...listFromIntent(parseShopping('Pizza Freitag bei Lieferando: Pizza Margherita, Pizza Diavola')!, ref), name: 'Pizza Freitag', state: 'active', nextDate: null });
   store.save('event', stamp({ title: 'Team-Meeting', date: ref, start: '09:30', end: '10:30', tentative: false, orderId: null }));
   store.save('event', stamp({ title: 'Laufen mit Ben', date: ref, start: '18:00', end: '19:00', tentative: false, orderId: null }));
   store.save('event', stamp({ title: 'Elternabend', date: addDays(ref, 1), start: '18:30', end: '20:00', tentative: false, orderId: null }));
