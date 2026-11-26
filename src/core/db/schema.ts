@@ -42,6 +42,17 @@ export const MIGRATIONS: string[] = [
   ALTER TABLE cal_event ADD COLUMN dirty INTEGER NOT NULL DEFAULT 1;
   ALTER TABLE memo ADD COLUMN dirty INTEGER NOT NULL DEFAULT 1;
   `,
+  /* v3: shopping and food orders – baskets with a rhythm, and the history of confirmed orders */ `
+  CREATE TABLE shop_list (
+    id TEXT PRIMARY KEY, space_id TEXT NOT NULL, name TEXT NOT NULL, kind TEXT NOT NULL, platform_id TEXT, store_url TEXT,
+    items TEXT NOT NULL DEFAULT '', every_n INTEGER, every_unit TEXT, weekday INTEGER, next_date TEXT,
+    lead_days INTEGER NOT NULL DEFAULT 1, handed_on TEXT, last_ordered TEXT, state TEXT NOT NULL DEFAULT 'active',
+    created_at TEXT NOT NULL, updated_at TEXT NOT NULL, deleted INTEGER NOT NULL DEFAULT 0, dirty INTEGER NOT NULL DEFAULT 1);
+  CREATE TABLE shop_run (
+    id TEXT PRIMARY KEY, space_id TEXT NOT NULL, list_id TEXT, platform_id TEXT, date TEXT NOT NULL, items TEXT NOT NULL,
+    created_at TEXT NOT NULL, updated_at TEXT NOT NULL, deleted INTEGER NOT NULL DEFAULT 0, dirty INTEGER NOT NULL DEFAULT 1);
+  CREATE INDEX shop_run_date ON shop_run (date);
+  `,
 ];
 
 export const TABLES = {
@@ -51,6 +62,8 @@ export const TABLES = {
   memory: { name: 'memory', bools: [] as string[] },
   event: { name: 'cal_event', bools: ['tentative'] },
   memo: { name: 'memo', bools: [] as string[] },
+  shopList: { name: 'shop_list', bools: [] as string[] },
+  shopRun: { name: 'shop_run', bools: [] as string[] },
 } as const;
 
 export type TableKey = keyof typeof TABLES;

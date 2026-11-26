@@ -102,3 +102,41 @@ export function stamp<T extends object>(data: T, now = new Date()): T & Row {
   const t = now.toISOString();
   return { id: newId(), createdAt: t, updatedAt: t, ...data };
 }
+
+export type ShopKind = 'grocery' | 'food';
+
+/**
+ * Einkaufsliste / Bestellkorb. PA prepares it (by voice, or on its rhythm), the user confirms once and orders
+ * on the platform. PA never pays or sends an order itself.
+ */
+export interface ShopList extends Row {
+  /** "Wocheneinkauf", "Pizza Freitag". Spoken names find it again ("Bestell den Wocheneinkauf"). */
+  name: string;
+  kind: ShopKind;
+  /** Platform id from shopping/platforms (gurkerl, foodora, …), null = plain shopping list for the shop. */
+  platformId: string | null;
+  /** Saved store or restaurant page on the platform (favourite), opened instead of the platform's start page. */
+  storeUrl: string | null;
+  /** One item per line, e.g. "2 l Milch". Plain text so it stays readable everywhere. */
+  items: string;
+  /** Rhythm: every N units, optionally on a weekday (0 = Sunday). Null = one-off list. */
+  everyN: number | null;
+  everyUnit: Unit | null;
+  weekday: number | null;
+  /** Next delivery/order day of a recurring list. */
+  nextDate: ISODate | null;
+  /** Days before nextDate when PA puts the prepared basket in front of the user (default 1). */
+  leadDays: number;
+  /** Day the user last opened the platform from PA (asks "Bestellt?" afterwards). */
+  handedOn: ISODate | null;
+  lastOrdered: ISODate | null;
+  state: 'active' | 'paused' | 'done';
+}
+
+/** One confirmed order: history for rhythms ("meist freitags bei gurkerl") and for "nochmal dasselbe". */
+export interface ShopRun extends Row {
+  listId: string | null;
+  platformId: string | null;
+  date: ISODate;
+  items: string;
+}
