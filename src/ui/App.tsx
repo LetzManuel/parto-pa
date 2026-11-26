@@ -12,6 +12,7 @@ import { BasketSheet } from './Shopping';
 import { FlowsProvider, type Flows, type SentInfo } from './flows';
 import { MessageComposer, type ComposerStart } from './Message';
 import { wireFeatures } from './wiring';
+import { CartToast } from './CartToast';
 
 type Tab = 'today' | 'calendar' | 'capture' | 'orders' | 'me';
 
@@ -65,6 +66,7 @@ function Shell() {
       {basket && <BasketSheet id={basket} onClose={() => setBasket(null)} />}
       {finder && <Finder start={finder} onClose={() => setFinder(null)} />}
       {sheet && <ProviderSheet id={sheet} onClose={() => setSheet(null)} />}
+      <CartToast />
       {message && (
         <div className="sheet-backdrop" onClick={() => setMessage(null)}>
           <div className="sheet" onClick={(e) => e.stopPropagation()}>
