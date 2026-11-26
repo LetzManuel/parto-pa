@@ -9,7 +9,7 @@ import { syncProviderOrder } from './providers';
 import { loadDemo } from './demo';
 import { Account } from './Account';
 import { ShoppingSettings } from './Shopping';
-import { Favourites } from './Favourites';
+import { Anbieter } from './Anbieter';
 import type { FavKind } from '../core/favourites/model';
 import { TravelSettings } from './TravelSettings';
 import { Rhythms } from './Rhythms';
@@ -29,7 +29,7 @@ export function Me({ onOpenProvider, onOpenBasket, onFind }: { onOpenProvider: (
           </Field>
         </div>
       </Section>
-      <Favourites onCheck={onFind} />
+      <Anbieter onCheck={onFind} />
       <TravelSettings />
       <Rhythms />
       <Providers onOpen={onOpenProvider} />

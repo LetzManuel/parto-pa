@@ -5,6 +5,7 @@ import { applyCommand, dueLists, findList, handoff, listFromIntent, markHanded, 
 import { textToItems, type ShopIntent } from '../core/shopping/parse';
 import { DEFAULT_ENABLED, defaultPlatform, platform, PLATFORMS } from '../core/shopping/platforms';
 import { formatShort, type Unit } from '../core/time/dates';
+import { shopOrder } from '../core/anbieter/lists';
 import { usePA } from './context';
 import { Card, Chip, Empty, Field, Section } from './kit';
 
@@ -30,7 +31,11 @@ export function openPlatform(store: Store, l: ShopList, today: string): boolean 
 /** The basket a spoken order means: a saved one ("das Übliche") or a new draft (not saved yet). */
 export function basketFor(store: Store, intent: ShopIntent, today: string): { list: ShopList | undefined; saved: boolean } {
   if (intent.reuse) return { list: findList(store.list('shopList'), intent.reuse, store.list('shopRun')), saved: true };
-  return { list: listFromIntent(intent, today, defaultPlatform(intent.kind, enabledPlatforms(store))?.id), saved: false };
+  // "Meine Anbieter" decides the order; without a list there, the platforms switched on below.
+  const order = shopOrder(store.list('favourite'), intent.kind);
+  const list = listFromIntent(intent, today, order[0]?.platformId ?? defaultPlatform(intent.kind, enabledPlatforms(store))?.id);
+  const own = order.find((o) => o.platformId === list.platformId);
+  return { list: own?.storeUrl ? { ...list, storeUrl: own.storeUrl } : list, saved: false };
 }
 
 function confirmOrdered(store: Store, l: ShopList, today: string): void {
@@ -223,7 +228,7 @@ export function ShoppingSettings({ onOpen }: { onOpen: (id: string) => void }) {
       <div className="chips">
         {PLATFORMS.map((p) => <Chip key={p.id} active={enabled.includes(p.id)} onClick={() => toggle(p.id)}>{p.name}</Chip>)}
       </div>
-      <p className="hint">Reihenfolge = Standard, wenn du keine Plattform nennst. BILLA kommt über foodora, SPAR, INTERSPAR und HOFER liefern nicht mehr zu.</p>
+      <p className="hint">Wenn du keine Plattform nennst, nimmt PA die erste unter <b>Meine Anbieter</b> (sonst die erste eingeschaltete). BILLA kommt über foodora, SPAR, INTERSPAR und HOFER liefern nicht mehr zu.</p>
     </Section>
   );
 }

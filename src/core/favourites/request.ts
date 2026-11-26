@@ -10,7 +10,8 @@ const KIND_WORDS: Array<[FavKind, RegExp]> = [
   ['doctor', /(?:ärzt|arzt|doktor|ordination|praxis|zahn|dermatolog|gynäkolog|orthopäd|kinderärzt|physio)/i],
   ['tickets', /ticket|karten?\b|konzert|kabarett|theater|oper\b|musical|festival/i],
   ['restaurant', /restaurant|tisch|reservier|essen gehen|abendessen|mittagessen|brunch|lokal|wirtshaus|heurigen/i],
-  ['salon', /friseur|frisör|haare|haarschnitt|schneiden|färben|barber|maniküre|pediküre|nägel|kosmetik|massage|wimpern/i],
+  ['beauty', /maniküre|pediküre|nägel|nagelstudio|kosmetik|massage|wimpern|augenbrauen|gesichtsbehandlung|waxing/i],
+  ['salon', /friseur|frisör|haare|haarschnitt|schneiden|färben|barber/i],
 ];
 
 /** Doctors by field: the word in the request picks the list ("Zahnarzt" → the Zahnarzt favourites). */
@@ -21,11 +22,11 @@ const DOCTOR_TOPICS: Array<[string, RegExp]> = [
 ];
 
 const DEFAULT_WINDOW: Record<FavKind, [string, string]> = {
-  salon: ['08:00', '19:00'], restaurant: ['18:00', '21:00'], tickets: ['00:00', '23:59'],
+  salon: ['08:00', '19:00'], beauty: ['08:00', '19:00'], restaurant: ['18:00', '21:00'], tickets: ['00:00', '23:59'],
   doctor: ['08:00', '17:00'], babysitter: ['18:00', '23:00'],
 };
 /** How many days PA looks ahead when no day was said. */
-const DEFAULT_DAYS: Record<FavKind, number> = { salon: 7, restaurant: 1, tickets: 90, doctor: 14, babysitter: 1 };
+const DEFAULT_DAYS: Record<FavKind, number> = { salon: 7, beauty: 7, restaurant: 1, tickets: 90, doctor: 14, babysitter: 1 };
 
 const pad = (n: number) => String(n).padStart(2, '0');
 function time(h: string, m?: string): string | null {
@@ -38,8 +39,19 @@ const plus = (t: string, min: number) => {
   return `${pad(Math.floor(v / 60))}:${pad(v % 60)}`;
 };
 
-export function detectKind(s: string): FavKind | null {
-  return KIND_WORDS.find(([, re]) => re.test(s))?.[0] ?? null;
+/** Own words per list ("Haare", "Barber", "Studio Nails"), maintained on "Meine Anbieter". They win over the built-in words. */
+export type KindWords = Partial<Record<FavKind, string[]>>;
+
+const esc = (w: string) => w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+/** Whole-word, case-insensitive match of any of the words. */
+export function mentions(s: string, words: string[] | undefined): boolean {
+  const list = (words ?? []).map((w) => w.trim()).filter((w) => w.length > 1);
+  return list.length > 0 && new RegExp(`(?<![\\p{L}\\d])(?:${list.map(esc).join('|')})(?![\\p{L}\\d])`, 'iu').test(s);
+}
+
+export function detectKind(s: string, own: KindWords = {}): FavKind | null {
+  const mine = (Object.keys(own) as FavKind[]).find((k) => mentions(s, own[k]));
+  return mine ?? KIND_WORDS.find(([, re]) => re.test(s))?.[0] ?? null;
 }
 
 export function findWindow(s: string, kind: FavKind): { from: string; to: string } | null {
@@ -103,9 +115,9 @@ function ticketKeyword(s: string, cut: string[]): string | null {
 }
 
 /** Parses a request. Returns null when no kind is recognised (the person picks one on the form). */
-export function parseRequest(text: string, ref: ISODate, forceKind?: FavKind): BookingRequest | null {
+export function parseRequest(text: string, ref: ISODate, forceKind?: FavKind, own: KindWords = {}): BookingRequest | null {
   const s = text.trim();
-  const kind = forceKind ?? detectKind(s);
+  const kind = forceKind ?? detectKind(s, own);
   if (!kind) return null;
   const month = findMonth(s, ref);
   const when = month ? null : findWhen(s, ref);

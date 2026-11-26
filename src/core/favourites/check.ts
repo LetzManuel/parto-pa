@@ -3,19 +3,19 @@
 import type { CalEvent } from '../model';
 import { formatShort, type ISODate } from '../time/dates';
 import { adapterFor, type AdapterContext } from './adapters';
-import type { BookingRequest, CheckResult, Favourite, FavKind, Slot } from './model';
+import type { BookingRequest, CheckResult, Favourite, ListKind, Slot } from './model';
 import { systemInfo } from './systems';
 
 export interface Outcome { fav: Favourite; result: CheckResult }
 
 /** Usual length if the favourite has none, used to test a slot against the person's calendar. */
-const DEFAULT_MIN: Partial<Record<FavKind, number>> = { salon: 60, doctor: 30, restaurant: 120 };
+const DEFAULT_MIN: Partial<Record<ListKind, number>> = { salon: 60, beauty: 45, doctor: 30, restaurant: 120 };
 
 const toMin = (t: string) => Number(t.slice(0, 2)) * 60 + Number(t.slice(3, 5));
 
 /** The list for a request: favourites of that kind (and doctor field), first priority first. */
 export function listFor(all: Favourite[], req: Pick<BookingRequest, 'kind' | 'topic'>): Favourite[] {
-  const kind = all.filter((f) => f.kind === req.kind);
+  const kind = all.filter((f) => f.kind === req.kind && f.system !== 'keyword');
   const byTopic = req.topic ? kind.filter((f) => f.topic?.toLowerCase() === req.topic!.toLowerCase()) : [];
   return (byTopic.length ? byTopic : kind).slice().sort((a, b) => a.priority - b.priority || a.name.localeCompare(b.name));
 }

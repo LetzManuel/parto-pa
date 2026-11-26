@@ -180,3 +180,12 @@ button.mic.small { width: 44px; height: 44px; min-width: 44px; min-height: 44px;
 .actions button.mic.small { margin-left: auto; }
 .list li.rhythm { display: block; }
 .rhythm-edit { margin-top: 10px; }
+
+/* Meine Anbieter: drag handle, drop marker, keyword chips */
+.list.fav .handle { touch-action: none; cursor: grab; color: var(--muted); font-weight: 900; padding: 4px 2px; user-select: none; letter-spacing: -2px; }
+.list.fav li.dragging { opacity: 0.55; }
+.list.fav li.drop-before { box-shadow: inset 0 3px 0 var(--pa); }
+.list.fav li.drop-after { box-shadow: inset 0 -3px 0 var(--pa); }
+.keywords { margin-top: 14px; }
+.chip.kw { display: inline-flex; align-items: center; gap: 4px; padding-right: 6px; }
+.chip.kw .link { min-height: 0; padding: 0 4px; color: inherit; font-weight: 900; }

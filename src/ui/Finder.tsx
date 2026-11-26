@@ -140,7 +140,7 @@ export function Finder({ start, onClose }: { start: FinderStart; onClose: () => 
         )}
 
         {outcomes && req && listFor(favs, req).length === 0 && (
-          <Card tone="warn">Für {req.topic ?? KIND_LABEL[req.kind]} hast du noch keine Favoriten. Lege bis zu drei unter <b>Ich › Meine Favoriten</b> an.</Card>
+          <Card tone="warn">Für {req.topic ?? KIND_LABEL[req.kind]} hast du noch keine Favoriten. Lege sie unter <b>Ich › Meine Anbieter</b> an.</Card>
         )}
 
         {outcomes && outcomes.length > 0 && (
