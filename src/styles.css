@@ -213,3 +213,9 @@ button.mic.small.on { background: var(--pa); color: var(--pa-ink); border-color:
 :root[data-theme="dark"] .card { border: 1px solid var(--line); }
 :root[data-theme="dark"] .suggest-label, :root[data-theme="dark"] h2 { font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; text-transform: uppercase; letter-spacing: 0.08em; font-size: 0.74rem; }
 :root[data-theme="dark"] .mic:not(.small) { background: var(--pa); color: var(--pa-ink); }
+
+/* Colour carries the distinction (Manuel, 26 Nov 2026: "klar und bunt", variant B: tinted cards). */
+.card[class*=" k-"] { border: 0; background: color-mix(in srgb, var(--k) 13%, var(--surface)); }
+.card[class*=" k-"] .kind-label { display: inline-block; background: var(--k); color: #fff; padding: 4px 8px; border-radius: 3px; font-size: 0.72rem; margin-bottom: 10px; }
+.card[class*=" k-"] button.primary { background: var(--k); border-color: var(--k); color: #fff; }
+.card[class*=" k-"] button:not(.primary) { background: var(--bg); border-color: color-mix(in srgb, var(--k) 35%, var(--surface)); }
