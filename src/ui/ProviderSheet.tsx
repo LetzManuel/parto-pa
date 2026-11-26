@@ -7,6 +7,8 @@ import { addDays } from '../core/time/dates';
 import { usePA } from './context';
 import { Card, Field } from './kit';
 import { recordVisit } from './providers';
+import { fromProvider } from '../core/messages';
+import { MessageComposer } from './Message';
 
 /** "Anrufen mit Spickzettel" / e-mail / booking page. PA prepares, the user calls, sends or books. */
 export function ProviderSheet({ id, onClose }: { id: string; onClose: () => void }) {
@@ -15,6 +17,7 @@ export function ProviderSheet({ id, onClose }: { id: string; onClose: () => void
   const [from, setFrom] = useState('17:00');
   const [to, setTo] = useState('20:00');
   const [done, setDone] = useState<string | null>(null);
+  const [writing, setWriting] = useState(false);
   if (!p) return null;
 
   const windows = freeWindows(allEvents(store, { busyOnly: true }), { from: addDays(today, 1), days: 10, dayStart: from, dayEnd: to, minMinutes: 60, skipWeekends: true });
@@ -40,6 +43,11 @@ export function ProviderSheet({ id, onClose }: { id: string; onClose: () => void
           <button className="link" onClick={onClose}>Schließen</button>
         </div>
 
+        {writing ? (
+          <MessageComposer
+            initial={{ recipient: fromProvider(p), template: 'request', body: windowsText(describeWindows(windows, today)), voice: true }}
+            onClose={() => setWriting(false)} />
+        ) : <>
         <div className="row">
           <Field label="Frühestens"><input type="time" value={from} onChange={(e) => setFrom(e.target.value)} /></Field>
           <Field label="Spätestens"><input type="time" value={to} onChange={(e) => setTo(e.target.value)} /></Field>
@@ -53,6 +61,7 @@ export function ProviderSheet({ id, onClose }: { id: string; onClose: () => void
 
         <div className="actions wrap">
           {tel && <a className="button primary" href={tel}>Anrufen {p.phone}</a>}
+          {(p.email || p.phone) && <button onClick={() => setWriting(true)}>Nachricht ansagen</button>}
           {mail && <a className="button" href={mail}>E-Mail vorbereiten</a>}
           {web && <a className="button" href={web} target="_blank" rel="noreferrer">Buchungsseite öffnen</a>}
         </div>
@@ -63,7 +72,12 @@ export function ProviderSheet({ id, onClose }: { id: string; onClose: () => void
           <button onClick={() => { recordVisit(store, p, today); refresh(); setDone('Besuch eingetragen. PA meldet sich zum nächsten Termin.'); }}>Termin steht / war dort</button>
         </div>
         {done && <p className="ok">{done}</p>}
+        </>}
       </div>
     </div>
   );
+}
+
+function windowsText(w: string): string {
+  return w ? `Am liebsten ${w}.` : '';
 }
