@@ -1,4 +1,5 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 
-export default defineConfig({ plugins: [react()] })
+// Relative base: the same build works on test-pa.parto.at and under letzmanuel.github.io/parto-pa-test/.
+export default defineConfig({ base: './', plugins: [react()] })

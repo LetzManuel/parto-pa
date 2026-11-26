@@ -1,19 +1,26 @@
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import type { Store } from '../core/db/store';
 import { Calendar } from './Calendar';
 import { Capture } from './Capture';
+import { Finder, type FinderStart } from './Finder';
 import { Provider, usePA } from './context';
 import { Me } from './Me';
 import { Orders } from './Orders';
 import { ProviderSheet } from './ProviderSheet';
 import { Today } from './Today';
+import { BasketSheet } from './Shopping';
+import { FlowsProvider, type Flows, type SentInfo } from './flows';
+import { MessageComposer, type ComposerStart } from './Message';
+import { wireFeatures } from './wiring';
+import { CartToast } from './CartToast';
+import { DoItSheet, type DoItStart } from './DoIt';
 
 type Tab = 'today' | 'calendar' | 'capture' | 'orders' | 'me';
 
 const TABS: Array<[Tab, string, string]> = [
   ['today', 'Heute', 'M4 6h16M4 12h10M4 18h7'],
   ['calendar', 'Kalender', 'M5 5h14v14H5zM5 9h14M9 3v4M15 3v4'],
-  ['capture', '', 'M12 5v14M5 12h14'],
+  ['capture', '', 'M9 5a3 3 0 016 0v6a3 3 0 01-6 0zM5 11a7 7 0 0014 0M12 18v3'],
   ['orders', 'Aufträge', 'M5 6l2 2 4-4M5 13l2 2 4-4M13 7h6M13 14h6M5 20h14'],
   ['me', 'Ich', 'M12 12a4 4 0 100-8 4 4 0 000 8zM4 20c1.5-4 4.5-6 8-6s6.5 2 8 6'],
 ];
@@ -25,25 +32,54 @@ export function App({ store }: { store: Store }) {
 function Shell() {
   const [tab, setTab] = useState<Tab>(() => (new URLSearchParams(location.search).get('tab') as Tab) || 'today');
   const [sheet, setSheet] = useState<string | null>(null);
-  usePA(); // re-render on data changes
+  const [basket, setBasket] = useState<string | null>(null);
+  // ?finden=1 (home-screen shortcut "Finden") opens the finder and starts listening.
+  const [finder, setFinder] = useState<FinderStart | null>(() => (new URLSearchParams(location.search).has('finden') ? {} : null));
+  const [doIt, setDoIt] = useState<DoItStart | null>(null);
+  const [message, setMessage] = useState<{ start: ComposerStart; onSent?: (i: SentInfo) => void } | null>(null);
+  const { store } = usePA(); // re-render on data changes
+  useEffect(() => wireFeatures(store), [store]);
+  const flows: Flows = useMemo(() => ({
+    openFinder: (start) => { setMessage(null); setFinder(start); },
+    openMessage: (start, onSent) => { setFinder(null); setMessage({ start, onSent }); },
+    openBasket: (id) => setBasket(id),
+    openProvider: (id) => setSheet(id),
+    openMe: () => setTab('me'),
+    openDoIt: (orderId, said) => { setFinder(null); setMessage(null); setDoIt({ orderId, said }); },
+  }), []);
   return (
+    <FlowsProvider value={flows}>
     <div className="app">
+      {import.meta.env.VITE_APP_ENV === 'test' && <div className="test-badge" title="Testumgebung, nur Testdaten">TEST</div>}
       <main>
-        {tab === 'today' && <Today onOpenProvider={setSheet} />}
+        {tab === 'today' && <Today onOpenProvider={setSheet} onOpenBasket={setBasket} onFind={() => setFinder({})} onOpenMe={() => setTab('me')} />}
         {tab === 'calendar' && <Calendar />}
-        {tab === 'capture' && <Capture onDone={() => setTab('orders')} />}
+        {tab === 'capture' && <Capture onDone={() => setTab('orders')} onOpenBasket={(id) => { setTab('today'); setBasket(id); }} onFind={(text) => setFinder({ text })} />}
         {tab === 'orders' && <Orders />}
-        {tab === 'me' && <Me onOpenProvider={setSheet} />}
+        {tab === 'me' && <Me onOpenProvider={setSheet} onOpenBasket={setBasket} onFind={(kind, topic) => setFinder({ kind, topic })} />}
       </main>
       <nav className="tabbar">
         {TABS.map(([id, label, d]) => (
-          <button key={id} className={`${tab === id ? 'on' : ''} ${id === 'capture' ? 'plus' : ''}`} onClick={() => setTab(id)} aria-label={label || 'Neues Memo'}>
+          <button key={id} className={`${tab === id ? 'on' : ''} ${id === 'capture' ? 'plus' : ''}`} onClick={() => setTab(id)} aria-label={label || 'Sprechen'}>
             <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d={d} /></svg>
             {label && <span>{label}</span>}
           </button>
         ))}
       </nav>
+      {basket && <BasketSheet id={basket} onClose={() => setBasket(null)} />}
+      {finder && <Finder start={finder} onClose={() => setFinder(null)} />}
       {sheet && <ProviderSheet id={sheet} onClose={() => setSheet(null)} />}
+      {doIt && <DoItSheet start={doIt} onClose={() => setDoIt(null)} />}
+      <CartToast />
+      {message && (
+        <div className="sheet-backdrop" onClick={() => setMessage(null)}>
+          <div className="sheet" onClick={(e) => e.stopPropagation()}>
+            <div className="sheet-head"><h2>Nachricht</h2><button className="link" onClick={() => setMessage(null)}>Schließen</button></div>
+            <MessageComposer initial={message.start} onClose={() => setMessage(null)} onSent={message.onSent} />
+          </div>
+        </div>
+      )}
     </div>
+    </FlowsProvider>
   );
 }

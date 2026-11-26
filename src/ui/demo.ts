@@ -5,6 +5,11 @@ import { stamp, type Provider } from '../core/model';
 import { createOrder, markRequested } from '../core/orders/flow';
 import { addDays, addMonths, today as todayISO } from '../core/time/dates';
 import { syncProviderOrder } from './providers';
+import { listFromIntent } from '../core/shopping/lists';
+import { parseShopping } from '../core/shopping/parse';
+import type { Favourite } from '../core/favourites/model';
+import { createRhythm } from '../core/rhythms/engine';
+import { createTouch } from '../core/rhythms/history';
 
 /** Sample data for pilot demos, relative to today. */
 export function loadDemo(store: Store, ref = todayISO()): void {
@@ -30,7 +35,42 @@ export function loadDemo(store: Store, ref = todayISO()): void {
   store.save('deadline', createDeadline({ kind: 'pickerl', title: '§57a-Pickerl Golf', dueDate: addDays(ref, 20) }));
   store.save('deadline', createDeadline({ kind: 'passport', dueDate: addMonths(ref, 5) }));
   store.save('deadline', createDeadline({ kind: 'contract', title: 'Fitnessstudio kündbar bis', dueDate: addDays(ref, 45) }));
+  // Wocheneinkauf ready for tomorrow (prepared a day ahead), and a saved pizza order.
+  const week = listFromIntent(parseShopping('Jeden Samstag Wocheneinkauf bei gurkerl: 2 l Milch, 10 Eier, Bananen, Vollkornbrot, Butter, Joghurt')!, ref);
+  store.save('shopList', { ...week, weekday: null, nextDate: addDays(ref, 1) });
+  store.save('shopList', { ...listFromIntent(parseShopping('Pizza Freitag bei Lieferando: Pizza Margherita, Pizza Diavola')!, ref), name: 'Pizza Freitag', state: 'active', nextDate: null });
   store.save('event', stamp({ title: 'Team-Meeting', date: ref, start: '09:30', end: '10:30', tentative: false, orderId: null }));
-  store.save('event', stamp({ title: 'Laufen mit Ben', date: ref, start: '18:00', end: '19:00', tentative: false, orderId: null }));
+
+  // Favourites: "demo" reads example slots without network, the others show the handoff.
+  const fav = (f: Partial<Favourite> & Pick<Favourite, 'name' | 'kind' | 'priority'>) =>
+    store.save('favourite', stamp<Omit<Favourite, 'id' | 'createdAt' | 'updatedAt'>>({ topic: null, system: 'manual', systemRef: null, bookingUrl: null, phone: null, durationMin: null, note: null, ...f }));
+  fav({ kind: 'salon', priority: 2, name: 'Salon Haarmonie', system: 'demo', phone: '+43 1 234 56 78', durationMin: 45 });
+  fav({ kind: 'salon', priority: 1, name: 'Haarwerk Neubau', system: 'demo', bookingUrl: 'https://www.treatwell.at/' });
+  fav({ kind: 'salon', priority: 3, name: 'Barber Joe', system: 'treatwell', bookingUrl: 'https://www.treatwell.at/', phone: '+43 1 987 65 43' });
+  fav({ kind: 'restaurant', priority: 1, name: 'Gasthaus Pöschl', system: 'demo', bookingUrl: 'https://www.resmio.com/' });
+  fav({ kind: 'restaurant', priority: 2, name: 'Café Anzengruber', phone: '+43 1 587 82 97' });
+  fav({ kind: 'tickets', priority: 1, name: 'Ticketmaster', system: 'demo', bookingUrl: 'https://www.ticketmaster.at/' });
+  fav({ kind: 'tickets', priority: 2, name: 'oeticket', system: 'oeticket', bookingUrl: 'https://www.oeticket.com/' });
+  fav({ kind: 'doctor', topic: 'Zahnarzt', priority: 1, name: 'Dr. Muster', system: 'doctolib', bookingUrl: 'https://www.doctolib.at/', phone: '+43 1 111 22 33' });
+  fav({ kind: 'doctor', topic: 'Hausarzt', priority: 1, name: 'Dr. Huber', phone: '+43 1 444 55 66' });
+  fav({ kind: 'babysitter', priority: 1, name: 'Lena Huber', phone: '0664 123 45 67' });
+  fav({ kind: 'babysitter', priority: 2, name: 'Jakob Steiner', phone: '0676 765 43 21' });
+  fav({ kind: 'beauty', priority: 1, name: 'Studio Nails', phone: '+43 664 123 45 67' });
+  // Meine Anbieter: shop order and own keywords.
+  fav({ kind: 'grocery', priority: 1, name: 'gurkerl', system: 'shop', systemRef: 'gurkerl' });
+  fav({ kind: 'grocery', priority: 2, name: 'BILLA über foodora', system: 'shop', systemRef: 'foodora' });
+  fav({ kind: 'food', priority: 1, name: 'foodora', system: 'shop', systemRef: 'foodora' });
+  fav({ kind: 'food', priority: 2, name: 'Lieferando', system: 'shop', systemRef: 'lieferando' });
+  fav({ kind: 'salon', priority: 0, name: 'Spitzen', system: 'keyword' });
+  store.save('event', stamp({ title: 'Laufen mit Ben', date: ref, start: '18:00', end: '19:00', tentative: false, orderId: null, location: 'Prater Hauptallee, 1020 Wien' }));
+  store.save('event', stamp({ title: 'Elternabend', date: addDays(ref, 1), start: '18:30', end: '20:00', tentative: false, orderId: null, location: 'Volksschule Zirkusgasse 48, 1020 Wien' }));
+  // Rhythms: Anna is overdue (call), Mama is fine; "Kaffee mit Lisa" every two weeks in the calendar is a learned proposal.
+  store.save('rhythm', createRhythm({ subject: 'person:anna', label: 'Anna', kind: 'contact', everyN: 3, everyUnit: 'week', lastDone: addDays(ref, -36), phone: '+43 660 765 43 21' }));
+  store.save('rhythm', createRhythm({ subject: 'person:mama', label: 'Mama', kind: 'contact', everyN: 1, everyUnit: 'week', channel: 'message' }));
+  store.save('touch', createTouch({ subject: 'person:mama', kind: 'contact', date: addDays(ref, -3), source: 'voice', direction: 'in' }));
+  store.save('rhythm', createRhythm({ subject: 'massage', label: 'Massage', kind: 'booking', everyN: 2, everyUnit: 'month', lastDone: addDays(ref, -40) }));
+  for (const d of [-44, -30, -16, -3]) {
+    store.save('event', stamp({ title: 'Kaffee mit Lisa', date: addDays(ref, d), start: '08:15', end: '09:00', tentative: false, orderId: null }));
+  }
   store.save('event', stamp({ title: 'Elternabend', date: addDays(ref, 1), start: '18:30', end: '20:00', tentative: false, orderId: null }));
 }

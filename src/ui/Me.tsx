@@ -7,13 +7,21 @@ import { usePA } from './context';
 import { Empty, Field, Section } from './kit';
 import { syncProviderOrder } from './providers';
 import { loadDemo } from './demo';
+import { Account } from './Account';
+import { ShoppingSettings } from './Shopping';
+import { Anbieter } from './Anbieter';
+import type { FavKind } from '../core/favourites/model';
+import { TravelSettings } from './TravelSettings';
+import { Rhythms } from './Rhythms';
 
-export function Me({ onOpenProvider }: { onOpenProvider: (id: string) => void }) {
+export function Me({ onOpenProvider, onOpenBasket, onFind }: { onOpenProvider: (id: string) => void; onOpenBasket: (id: string) => void; onFind: (kind: FavKind, topic: string | null) => void }) {
   const { store, refresh } = usePA();
   const [name, setName] = useState(store.getMeta('name') ?? '');
+  const [sure, setSure] = useState(false);
   return (
     <div className="screen">
       <h1>Ich</h1>
+      <Account />
       <Section title="Mein Name">
         <div className="form">
           <Field label="Für Unterschrift in E-Mails">
@@ -21,12 +29,21 @@ export function Me({ onOpenProvider }: { onOpenProvider: (id: string) => void })
           </Field>
         </div>
       </Section>
+      <Anbieter onCheck={onFind} />
+      <TravelSettings />
+      <Rhythms />
       <Providers onOpen={onOpenProvider} />
+      <ShoppingSettings onOpen={onOpenBasket} />
       <Memory />
       <Section title="Daten">
         <div className="actions wrap">
           <button onClick={() => { loadDemo(store); refresh(); }}>Beispieldaten laden</button>
-          <button className="danger" onClick={() => { if (confirm('Gedächtnis und alle Memos löschen?')) { store.forgetAll(); refresh(); } }}>Alles vergessen</button>
+          {!sure
+            ? <button className="danger" onClick={() => setSure(true)}>Alles vergessen</button>
+            : <>
+                <button className="danger" onClick={() => { store.forgetAll(); setSure(false); refresh(); }}>Ja, Gedächtnis und Memos löschen</button>
+                <button onClick={() => setSure(false)}>Abbrechen</button>
+              </>}
         </div>
         <p className="hint-line">„Alles vergessen“ löscht Gedächtnis und Memos auf einmal. Aufträge, Termine und Fristen bleiben.</p>
       </Section>

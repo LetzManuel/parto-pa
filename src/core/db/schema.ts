@@ -34,6 +34,46 @@ export const MIGRATIONS: string[] = [
   CREATE INDEX pa_order_due ON pa_order (state, due_date);
   CREATE INDEX cal_event_date ON cal_event (date);
   `,
+  /* v2: sync – rows changed on this device since the last push */ `
+  ALTER TABLE pa_order ADD COLUMN dirty INTEGER NOT NULL DEFAULT 1;
+  ALTER TABLE provider ADD COLUMN dirty INTEGER NOT NULL DEFAULT 1;
+  ALTER TABLE deadline ADD COLUMN dirty INTEGER NOT NULL DEFAULT 1;
+  ALTER TABLE memory ADD COLUMN dirty INTEGER NOT NULL DEFAULT 1;
+  ALTER TABLE cal_event ADD COLUMN dirty INTEGER NOT NULL DEFAULT 1;
+  ALTER TABLE memo ADD COLUMN dirty INTEGER NOT NULL DEFAULT 1;
+  `,
+  /* v3: shopping and food orders – baskets with a rhythm, and the history of confirmed orders */ `
+  CREATE TABLE shop_list (
+    id TEXT PRIMARY KEY, space_id TEXT NOT NULL, name TEXT NOT NULL, kind TEXT NOT NULL, platform_id TEXT, store_url TEXT,
+    items TEXT NOT NULL DEFAULT '', every_n INTEGER, every_unit TEXT, weekday INTEGER, next_date TEXT,
+    lead_days INTEGER NOT NULL DEFAULT 1, handed_on TEXT, last_ordered TEXT, state TEXT NOT NULL DEFAULT 'active',
+    created_at TEXT NOT NULL, updated_at TEXT NOT NULL, deleted INTEGER NOT NULL DEFAULT 0, dirty INTEGER NOT NULL DEFAULT 1);
+  CREATE TABLE shop_run (
+    id TEXT PRIMARY KEY, space_id TEXT NOT NULL, list_id TEXT, platform_id TEXT, date TEXT NOT NULL, items TEXT NOT NULL,
+    created_at TEXT NOT NULL, updated_at TEXT NOT NULL, deleted INTEGER NOT NULL DEFAULT 0, dirty INTEGER NOT NULL DEFAULT 1);
+  CREATE INDEX shop_run_date ON shop_run (date);
+  `,
+  /* v4: favourites (Friseur, Restaurant, Tickets, Ärzte, Babysitter), checked in priority order */ `
+  CREATE TABLE favourite (
+    id TEXT PRIMARY KEY, space_id TEXT NOT NULL, kind TEXT NOT NULL, topic TEXT, priority INTEGER NOT NULL,
+    name TEXT NOT NULL, system TEXT NOT NULL, system_ref TEXT, booking_url TEXT, phone TEXT, duration_min INTEGER, note TEXT,
+    created_at TEXT NOT NULL, updated_at TEXT NOT NULL, deleted INTEGER NOT NULL DEFAULT 0, dirty INTEGER NOT NULL DEFAULT 1);
+  `,
+  /* v5: where an appointment takes place (leave-by reminders) */ `
+  ALTER TABLE cal_event ADD COLUMN location TEXT;
+  `,
+  /* v6: rhythms ("Friseur etwa alle 5 Wochen", "Anna alle 3 Wochen") and their history (touches) */ `
+  CREATE TABLE rhythm (
+    id TEXT PRIMARY KEY, space_id TEXT NOT NULL, subject TEXT NOT NULL, label TEXT NOT NULL, kind TEXT NOT NULL,
+    status TEXT NOT NULL, origin TEXT NOT NULL, every_n INTEGER NOT NULL, every_unit TEXT NOT NULL,
+    last_done TEXT, snoozed_until TEXT, provider_id TEXT, phone TEXT, channel TEXT, note TEXT,
+    created_at TEXT NOT NULL, updated_at TEXT NOT NULL, deleted INTEGER NOT NULL DEFAULT 0, dirty INTEGER NOT NULL DEFAULT 1);
+  CREATE TABLE touch (
+    id TEXT PRIMARY KEY, space_id TEXT NOT NULL, subject TEXT NOT NULL, kind TEXT NOT NULL, date TEXT NOT NULL,
+    source TEXT NOT NULL, direction TEXT,
+    created_at TEXT NOT NULL, updated_at TEXT NOT NULL, deleted INTEGER NOT NULL DEFAULT 0, dirty INTEGER NOT NULL DEFAULT 1);
+  CREATE INDEX touch_subject ON touch (subject, date);
+  `,
 ];
 
 export const TABLES = {
@@ -43,6 +83,11 @@ export const TABLES = {
   memory: { name: 'memory', bools: [] as string[] },
   event: { name: 'cal_event', bools: ['tentative'] },
   memo: { name: 'memo', bools: [] as string[] },
+  shopList: { name: 'shop_list', bools: [] as string[] },
+  shopRun: { name: 'shop_run', bools: [] as string[] },
+  favourite: { name: 'favourite', bools: [] as string[] },
+  rhythm: { name: 'rhythm', bools: [] as string[] },
+  touch: { name: 'touch', bools: [] as string[] },
 } as const;
 
 export type TableKey = keyof typeof TABLES;
