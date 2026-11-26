@@ -8,7 +8,7 @@ import { runAction } from './actions';
 import { usePA } from './context';
 import { Card, Empty, Section } from './kit';
 
-export function Today({ onOpenProvider }: { onOpenProvider: (id: string) => void }) {
+export function Today({ onOpenProvider, onFind }: { onOpenProvider: (id: string) => void; onFind: () => void }) {
   const { store, today, refresh } = usePA();
   const b = buildBriefing({
     orders: store.list('order'), deadlines: store.list('deadline'), providers: store.list('provider'),
@@ -39,6 +39,10 @@ export function Today({ onOpenProvider }: { onOpenProvider: (id: string) => void
             : `${b.decisions.length} ${b.decisions.length === 1 ? 'Sache wartet' : 'Sachen warten'} auf dich, ${b.paHandles.length} erledigt PA.`}
         </p>
       </header>
+      <button className="find" onClick={onFind}>
+        <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 3a3 3 0 00-3 3v6a3 3 0 006 0V6a3 3 0 00-3-3zM5 11a7 7 0 0014 0M12 18v3" /></svg>
+        <span><b>Termin, Tisch, Tickets …</b><br /><span className="meta">Sag, was du brauchst. PA prüft deine Favoriten.</span></span>
+      </button>
 
       <Section title="Wartet auf dich">
         {active.length === 0 && <Empty>Keine Entscheidungen heute.</Empty>}

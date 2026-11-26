@@ -5,12 +5,14 @@ import { createMemory, sourceFromMemo, CATEGORY_LABEL, guessCategory } from '../
 import { suggest, TEMPLATES, type Suggestion, type TemplateId } from '../core/templates/templates';
 import type { Unit } from '../core/time/dates';
 import { usePA } from './context';
+import { parseRequest } from '../core/favourites/request';
+import { KIND_LABEL } from '../core/favourites/model';
 import { Chip, Field } from './kit';
 
 const UNITS: Array<[Unit, string]> = [['week', 'Wochen'], ['month', 'Monate'], ['year', 'Jahre']];
 
 /** "+" — a memo becomes an order through a fixed template. Nothing is saved before "Speichern". */
-export function Capture({ onDone }: { onDone: () => void }) {
+export function Capture({ onDone, onFind }: { onDone: () => void; onFind: (text: string) => void }) {
   const { store, today, refresh } = usePA();
   const [text, setText] = useState('');
   const [picked, setPicked] = useState<TemplateId | null>(null);
@@ -18,6 +20,7 @@ export function Capture({ onDone }: { onDone: () => void }) {
   const [remember, setRemember] = useState(true);
 
   const suggestions = useMemo(() => suggest(text, today), [text, today]);
+  const booking = useMemo(() => parseRequest(text, today), [text, today]);
   const base = suggestions.find((s) => s.template === picked) ?? (picked ? { template: picked, title: text, dueDate: null, confidence: 0 } : suggestions[0]);
   const s: Suggestion | undefined = base ? { ...base, ...edit } as Suggestion : undefined;
   const tpl = s?.template;
@@ -57,6 +60,9 @@ export function Capture({ onDone }: { onDone: () => void }) {
       <div className="chips">
         {TEMPLATES.map((t) => <Chip key={t.id} active={tpl === t.id} onClick={() => choose(t.id)}>{t.label}</Chip>)}
       </div>
+      {booking && (
+        <div className="actions"><button className="primary" onClick={() => { onFind(text); setText(''); }}>Bei Favoriten prüfen ({booking.topic ?? KIND_LABEL[booking.kind]})</button></div>
+      )}
       {!tpl && text.trim() && <p className="hint-line">Keine Form erkannt. Wähle eine aus oder speichere es als Notiz.</p>}
       {!text.trim() && (
         <ul className="patterns">{TEMPLATES.map((t) => <li key={t.id}>{t.pattern}</li>)}</ul>

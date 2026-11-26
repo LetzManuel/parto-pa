@@ -1,5 +1,6 @@
 import type { Database, SqlValue } from 'sql.js';
 import type { CalEvent, Deadline, MemoryEntry, Memo, Order, Provider } from '../model';
+import type { Favourite } from '../favourites/model';
 import { MIGRATIONS, TABLES, type TableKey } from './schema';
 
 export interface RowTypes {
@@ -9,6 +10,7 @@ export interface RowTypes {
   memory: MemoryEntry;
   event: CalEvent;
   memo: Memo;
+  favourite: Favourite;
 }
 
 const snake = (s: string) => s.replace(/[A-Z]/g, (c) => '_' + c.toLowerCase());

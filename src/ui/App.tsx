@@ -2,6 +2,7 @@ import { useState } from 'react';
 import type { Store } from '../core/db/store';
 import { Calendar } from './Calendar';
 import { Capture } from './Capture';
+import { Finder, type FinderStart } from './Finder';
 import { Provider, usePA } from './context';
 import { Me } from './Me';
 import { Orders } from './Orders';
@@ -25,16 +26,18 @@ export function App({ store }: { store: Store }) {
 function Shell() {
   const [tab, setTab] = useState<Tab>(() => (new URLSearchParams(location.search).get('tab') as Tab) || 'today');
   const [sheet, setSheet] = useState<string | null>(null);
+  // ?finden=1 (home-screen shortcut "Finden") opens the finder and starts listening.
+  const [finder, setFinder] = useState<FinderStart | null>(() => (new URLSearchParams(location.search).has('finden') ? {} : null));
   usePA(); // re-render on data changes
   return (
     <div className="app">
       {import.meta.env.VITE_APP_ENV === 'test' && <div className="test-badge" title="Testumgebung, nur Testdaten">TEST</div>}
       <main>
-        {tab === 'today' && <Today onOpenProvider={setSheet} />}
+        {tab === 'today' && <Today onOpenProvider={setSheet} onFind={() => setFinder({})} />}
         {tab === 'calendar' && <Calendar />}
-        {tab === 'capture' && <Capture onDone={() => setTab('orders')} />}
+        {tab === 'capture' && <Capture onDone={() => setTab('orders')} onFind={(text) => setFinder({ text })} />}
         {tab === 'orders' && <Orders />}
-        {tab === 'me' && <Me onOpenProvider={setSheet} />}
+        {tab === 'me' && <Me onOpenProvider={setSheet} onFind={(kind, topic) => setFinder({ kind, topic })} />}
       </main>
       <nav className="tabbar">
         {TABS.map(([id, label, d]) => (
@@ -44,6 +47,7 @@ function Shell() {
           </button>
         ))}
       </nav>
+      {finder && <Finder start={finder} onClose={() => setFinder(null)} />}
       {sheet && <ProviderSheet id={sheet} onClose={() => setSheet(null)} />}
     </div>
   );
