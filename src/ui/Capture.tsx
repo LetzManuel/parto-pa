@@ -25,6 +25,7 @@ import { describeCommand, type RhythmCommand } from '../core/rhythms/say';
 import { applyCommand as applyRhythm } from '../core/rhythms/touch';
 import { intervalText } from '../core/rhythms/engine';
 import { RhythmConfirm } from './Rhythms';
+import { useFlows } from './flows';
 import { getPrefs, setPrefs } from '../core/travel/prefs';
 import { tick } from '../platform/reminders';
 
@@ -65,7 +66,8 @@ export function Capture({ onDone, onOpenBasket, onFind }: { onDone: () => void; 
   }
   const rhythmText = (c: RhythmCommand) => describeCommand(c, intervalText, (d) => formatShort(d, today));
 
-  const ctx = () => ({ today, favourites: store.list('favourite'), recipients, upcoming: upcomingTimed(store, Date.now(), 48) });
+  const flows = useFlows();
+  const ctx = () => ({ today, favourites: store.list('favourite'), recipients, upcoming: upcomingTimed(store, Date.now(), 48), orders: store.list('order') });
   const yes = (t: string) => parseCommand(t)?.type === 'send' || /^(ja|passt|ok|okay|genau|gerne|speicher|übernehm|mach)/i.test(t.trim());
   /** Read the confirm sentence, one spoken "ja" applies it. */
   const confirmByVoice = (sentence: string, apply: () => string) => speak(sentence).then(() => hear((t) => {
@@ -83,6 +85,7 @@ export function Capture({ onDone, onOpenBasket, onFind }: { onDone: () => void; 
       return;
     }
     if (r.to === 'booking') { onFind(said); return; }
+    if (r.to === 'doit') { flows?.openDoIt(r.orderId, r.said); return; }
     setText(said); setEdit({}); setPicked(null);
     if (r.to === 'shopping') { voiceBasket(r.intent); return; }
     if (r.to === 'anbieter') { confirmByVoice(r.cmd.confirm, () => applyAnbieterCommand(store, r.cmd)); return; }
@@ -140,13 +143,14 @@ export function Capture({ onDone, onOpenBasket, onFind }: { onDone: () => void; 
   const routed = useMemo(() => route(text, ctx()), [text, today, store, recipients]); // eslint-disable-line react-hooks/exhaustive-deps
   const shopIntent = routed.to === 'shopping' ? routed.intent : null;
   const booking = routed.to === 'booking' ? routed.req : null;
+  const doit = routed.to === 'doit' ? routed : null;
   const anbieter: AnbieterCommand | null = routed.to === 'anbieter' ? routed.cmd : null;
   const rhythm: RhythmCommand | null = routed.to === 'rhythm' ? routed.cmd : null;
   const suggestions = useMemo(() => suggest(text, today), [text, today]);
   // "Heute bin ich mit dem Auto unterwegs": a travel setting, not an order. One tap applies it.
   const travel = routed.to === 'travel' ? routed.cmd : null;
   /** A command that is not a memo: travel, Meine Anbieter or a rhythm. Hides the memo form. */
-  const command = !!(travel || anbieter || rhythm);
+  const command = !!(travel || anbieter || rhythm || doit);
   // A booking request shows the check button only; picking a template chip turns it back into a memo.
   const special = command || (!!booking && !picked);
   const applyTravel = () => {
@@ -232,6 +236,9 @@ export function Capture({ onDone, onOpenBasket, onFind }: { onDone: () => void; 
             <div className="actions"><button className="primary" onClick={() => { setVoiceNote(applyAnbieterCommand(store, anbieter)); refresh(); setText(''); }}>Ja</button></div>
           </Card>
         </div>
+      )}
+      {doit && (
+        <div className="actions"><button className="pa-do" onClick={() => { flows?.openDoIt(doit.orderId, doit.said); setText(''); }}>PA erledigt das{doit.orderId ? `: ${store.get('order', doit.orderId)?.title ?? ''}` : ''}</button></div>
       )}
       {rhythm && <div className="travel-cmd"><RhythmConfirm command={rhythm} onSaved={(m) => { setVoiceNote(m); setText(''); }} /></div>}
 

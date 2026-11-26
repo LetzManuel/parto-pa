@@ -33,6 +33,8 @@ describe('one mic, one route', () => {
     expect(to('Babysitter Samstag ab 19 Uhr')).toBe('booking');
     expect(to('Tisch für 4 am Freitag um 19 Uhr')).toBe('booking');
     expect(to('Erinner mich morgen an die Steuer')).toBe('memo');
+    expect(to('PA, erledige den Friseurtermin')).toBe('doit');
+    expect(to('Kümmer dich um die Steuer')).toBe('doit');
   });
 
   it('uses own words: a keyword finds the list, a shop name makes it an order', () => {

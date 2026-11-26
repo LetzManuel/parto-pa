@@ -19,9 +19,11 @@ import { isShoppingIntent, parseShopping, type ShopIntent } from '../shopping/pa
 import { suggest, type Suggestion } from '../templates/templates';
 import type { ISODate } from '../time/dates';
 import type { Upcoming } from '../calendar/upcoming';
+import type { Order } from '../model';
 import { parseTravelCommand, type TravelCommand } from '../travel/voice';
 
 export type Route =
+  | { to: 'doit'; orderId: string | null; said: string }
   | { to: 'anbieter'; cmd: AnbieterCommand }
   | { to: 'travel'; cmd: TravelCommand }
   | { to: 'message'; req: MessageRequest }
@@ -35,6 +37,8 @@ export interface RouteContext {
   favourites: Favourite[];
   recipients: Recipient[];
   upcoming?: Upcoming[];
+  /** Open to-dos, so "Erledige die Steuer" finds the right one. */
+  orders?: Order[];
 }
 
 /** A reminder ("Erinner mich …", "Wenn … dann …") always stays a memo, even if it mentions a shop or a salon. */
@@ -46,6 +50,10 @@ export function route(raw: string, ctx: RouteContext): Route {
   const said = raw.trim();
   const best = suggest(said, ctx.today)[0] ?? null;
   if (!said) return { to: 'memo', best: null };
+
+  // "PA, erledige …" / "Kümmer dich um …": hand a to-do to PA (it asks for what is missing).
+  const doit = said.match(DOIT);
+  if (doit) return { to: 'doit', orderId: matchOrder(doit[1], ctx.orders ?? [])?.id ?? null, said: doit[1] };
 
   const anbieter = parseAnbieterCommand(said, ctx.favourites);
   if (anbieter) return { to: 'anbieter', cmd: anbieter };
@@ -67,6 +75,21 @@ export function route(raw: string, ctx: RouteContext): Route {
   }
 
   return { to: 'memo', best };
+}
+
+const DOIT = /^(?:pa,?\s+)?(?:erledig\w*|kümmer\w*\s+dich\s+um|übernimm|mach\s+du)\s+(?:bitte\s+)?(.+?)(?:\s+für mich)?[.!]?$/i;
+const words = (s: string) => s.toLowerCase().split(/[^\p{L}\d]+/u).filter((w) => w.length > 2 && !['die', 'der', 'das', 'den', 'dem', 'mit', 'und', 'für'].includes(w));
+
+/** The open to-do the words point to (most shared words), if any. */
+export function matchOrder(text: string, orders: Order[]): Order | null {
+  const want = new Set(words(text));
+  let best: { o: Order; n: number } | null = null;
+  for (const o of orders) {
+    if (o.state === 'done' || o.state === 'cancelled') continue;
+    const n = words(o.title).filter((w) => want.has(w) || [...want].some((x) => x.length > 4 && (w.startsWith(x) || x.startsWith(w)))).length;
+    if (n > 0 && (!best || n > best.n)) best = { o, n };
+  }
+  return best?.o ?? null;
 }
 
 /** Shopping, also when only an own shop name or keyword says so ("Billa am Eck: Milch und Brot"). */

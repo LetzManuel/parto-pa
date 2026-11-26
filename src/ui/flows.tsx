@@ -13,6 +13,8 @@ export interface Flows {
   openBasket: (id: string) => void;
   openProvider: (id: string) => void;
   openMe: () => void;
+  /** "PA erledigt das" for a to-do (or a spoken job without one). */
+  openDoIt: (orderId: string | null, said?: string | null) => void;
 }
 
 const FlowsContext = createContext<Flows | null>(null);

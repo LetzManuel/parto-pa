@@ -5,6 +5,7 @@ import { formatLong, fromISO, WEEKDAY_NAMES, formatShort } from '../core/time/da
 import { allEvents } from '../core/calendar/feeds';
 import { DEADLINE_KINDS } from '../core/deadlines/deadlines';
 import { runAction } from './actions';
+import { useFlows } from './flows';
 import { suggestionsFor } from '../core/rhythms/touch';
 import { RhythmCard } from './RhythmCard';
 import { usePA } from './context';
@@ -109,6 +110,7 @@ function hintKind(h: Hint): CardKind {
 }
 
 function HintCard({ h, onAction }: { h: Hint; onAction: (id: Hint['actions'][number]['id']) => void }) {
+  const flows = useFlows();
   const kind = hintKind(h);
   return (
     <Card tone={h.priority >= 80 ? 'warn' : 'accent'} kind={kind}>
@@ -119,6 +121,7 @@ function HintCard({ h, onAction }: { h: Hint; onAction: (id: Hint['actions'][num
         {h.actions.map((a, i) => (
           <button key={a.id} className={i === 0 ? 'primary' : ''} onClick={() => onAction(a.id)}>{a.label}</button>
         ))}
+        {flows && h.target.type === 'order' && <button className="pa-do" onClick={() => flows.openDoIt(h.target.id)}>PA erledigt das</button>}
       </div>
     </Card>
   );

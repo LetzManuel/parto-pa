@@ -13,6 +13,7 @@ import { FlowsProvider, type Flows, type SentInfo } from './flows';
 import { MessageComposer, type ComposerStart } from './Message';
 import { wireFeatures } from './wiring';
 import { CartToast } from './CartToast';
+import { DoItSheet, type DoItStart } from './DoIt';
 
 type Tab = 'today' | 'calendar' | 'capture' | 'orders' | 'me';
 
@@ -34,6 +35,7 @@ function Shell() {
   const [basket, setBasket] = useState<string | null>(null);
   // ?finden=1 (home-screen shortcut "Finden") opens the finder and starts listening.
   const [finder, setFinder] = useState<FinderStart | null>(() => (new URLSearchParams(location.search).has('finden') ? {} : null));
+  const [doIt, setDoIt] = useState<DoItStart | null>(null);
   const [message, setMessage] = useState<{ start: ComposerStart; onSent?: (i: SentInfo) => void } | null>(null);
   const { store } = usePA(); // re-render on data changes
   useEffect(() => wireFeatures(store), [store]);
@@ -43,6 +45,7 @@ function Shell() {
     openBasket: (id) => setBasket(id),
     openProvider: (id) => setSheet(id),
     openMe: () => setTab('me'),
+    openDoIt: (orderId, said) => { setFinder(null); setMessage(null); setDoIt({ orderId, said }); },
   }), []);
   return (
     <FlowsProvider value={flows}>
@@ -66,6 +69,7 @@ function Shell() {
       {basket && <BasketSheet id={basket} onClose={() => setBasket(null)} />}
       {finder && <Finder start={finder} onClose={() => setFinder(null)} />}
       {sheet && <ProviderSheet id={sheet} onClose={() => setSheet(null)} />}
+      {doIt && <DoItSheet start={doIt} onClose={() => setDoIt(null)} />}
       <CartToast />
       {message && (
         <div className="sheet-backdrop" onClick={() => setMessage(null)}>
