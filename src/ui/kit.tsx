@@ -1,7 +1,14 @@
 import type { ReactNode } from 'react';
 
-export function Card({ children, tone }: { children: ReactNode; tone?: 'accent' | 'warn' | 'quiet' }) {
-  return <div className={`card ${tone ?? ''}`}>{children}</div>;
+/** What a card is about. Each kind has its own clear colour (bar + status line), so cards are told apart at a glance. */
+export type CardKind = 'vorschlag' | 'frist' | 'warten' | 'termin' | 'person' | 'aufgabe';
+
+export const KIND_LABEL: Record<CardKind, string> = {
+  vorschlag: 'Vorschlag', frist: 'Frist', warten: 'Wartet auf Antwort', termin: 'Termin', person: 'Person', aufgabe: 'Aufgabe',
+};
+
+export function Card({ children, tone, kind }: { children: ReactNode; tone?: 'accent' | 'warn' | 'quiet'; kind?: CardKind }) {
+  return <div className={`card ${tone ?? ''} ${kind ? `k-${kind}` : ''}`}>{children}</div>;
 }
 
 export function Section({ title, children, aside }: { title: string; children: ReactNode; aside?: ReactNode }) {

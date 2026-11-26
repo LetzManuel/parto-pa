@@ -1,6 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { refreshFeeds } from '../platform/calendar';
 import { syncNow } from '../platform/cloud';
+import { tick } from '../platform/reminders';
 import type { Store } from '../core/db/store';
 import { today as todayISO, type ISODate } from '../core/time/dates';
 
@@ -45,6 +46,15 @@ export function Provider({ store, children }: { store: Store; children: ReactNod
     const iv = setInterval(runSync, 60_000);
     return () => { window.removeEventListener('focus', onFocus); clearInterval(iv); };
   }, [runSync]);
+
+  // Appointment reminders and leave-by times: every half minute, and right away when PA comes to the front.
+  useEffect(() => {
+    const run = () => { tick(store).then((ch) => { if (ch) setVersion((v) => v + 1); }).catch(() => { /* next round */ }); };
+    const t = setTimeout(run, 1500);
+    const iv = setInterval(run, 30_000);
+    document.addEventListener('visibilitychange', run);
+    return () => { clearTimeout(t); clearInterval(iv); document.removeEventListener('visibilitychange', run); };
+  }, [store]);
   const value = useMemo(() => ({ store, today: startDate(), version, refresh }), [store, version, refresh]);
   return <C.Provider value={value}>{children}</C.Provider>;
 }

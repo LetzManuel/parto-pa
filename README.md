@@ -30,11 +30,29 @@ src/core/        logic without UI, unit-tested
   providers/     call cheat sheet, mailto/tel/booking links (PA never sends or calls itself)
   messages/      dictated messages: standard templates (Sie/du), clean-up of spoken text, voice commands,
                  mailto / sms: / wa.me links. Public API in messages/index.ts, reused by other features
+  shopping/      groceries and food: spoken orders, baskets with a rhythm, hand-over to the platform
   calendar/      free windows (times only, never other appointments' content)
+  calendar/      ICS feeds, free windows, upcomingTimed (next appointments with place, shared by all features)
+  travel/        travel preferences (Auto/Öffis/zu Fuß/Rad), voice sentences for them, estimates, navigation links
+  reminders/     appointment reminders and leave-by times (route + buffer), what is due now
+  rhythms/       personal rhythms (Friseur ~5 Wochen, Anna ~3 Wochen): learned from history or said, suggestion engine
   db/            local SQLite schema (sql.js) and Store
 src/ui/          React screens: Heute, Kalender, + (Memo), Aufträge/Fristen, Ich
 supabase/        cloud schema draft: personal space (group kind 'personal'), is_group_member, has_app, RLS
 ```
+
+## Favourites check ("Friseur morgen 14 bis 17 Uhr")
+
+Say or type a request (big mic on *Heute*, home-screen shortcut *Finden* = `?finden=1`, or "+" memo). PA parses it on the
+device (`src/core/favourites/request.ts`), checks the favourites of that list in order (up to 3 each: Friseur & Beauty,
+Restaurant, Tickets, Ärzte per field, Babysitter), stops at the first free slot, reads the result aloud and offers one
+button to finish in the other app. PA never books, buys or sends.
+
+Adapters (`src/core/favourites/adapters.ts`): resmio (restaurants), Salonized (salons), Ticketmaster Discovery
+(needs `VITE_TICKETMASTER_KEY`), `demo`. Everything else (Treatwell, Shore, Fresha, Planity, Timify, OpenTable, TheFork,
+Quandoo, oeticket/Eventim, Doctolib, Latido, DocFinder, private babysitters) gets the handoff: booking page, call,
+WhatsApp/SMS with a prepared text, "Anruf einplanen" or "Angefragt, warte". In the browser, blocked requests go through
+the function `slot-relay` (signed in only, fixed hosts). Cloud table: `supabase/migrations/0004_pa_favourite.sql`.
 
 ## Rules that always hold
 
@@ -59,6 +77,22 @@ there. No AI: templates only frame the dictated text. Other features listen for 
 Browser support: Chrome/Edge and Safari (iOS needs Siri & Dictation on). Chrome's recogniser runs on Google servers,
 Safari's on Apple's; PA stores no audio. Without speech support the keyboard's own dictation key works in every field.
 
+## Rhythms and suggestions
+
+`src/core/rhythms/`: PA learns how often things happen and proposes the next step. No AI, all on the device.
+
+- **History** (`history.ts`): logged touches ("Hab gestern mit Anna telefoniert", a tap on a suggestion, a sent message,
+  a fixed booking), calendar titles (own + subscribed: "Friseur", "Kaffee mit Lisa", "Anna anrufen") and a provider's
+  "zuletzt dort". Health appointments never count. **Not read:** the phone's call log, SMS/WhatsApp chats, e-mail.
+- **Learning** (`learn.ts`): ≥ 3 times in the last year, regular gaps (median, ≤ 35 % spread), still alive → a proposal
+  "Lisa etwa alle 2 Wochen? Ja, merken / Nein". Nothing is used before the user confirms; a "Nein" sticks.
+- **Saying it** (`say.ts`): "Friseur alle 5 Wochen", "Mit Anna alle 3 Wochen telefonieren", "Ben jeden Monat schreiben",
+  "Friseur lieber alle 6 Wochen", "Anna hat sich gemeldet", "Anna pausieren". Shown as one confirm line.
+- **Suggestions** (`engine.ts`): one card on "Heute" ("Friseurtermin buchen?" a week ahead, "Anna anrufen?" when due),
+  one tap or one spoken word (ja / später / nein). It counts as one of the three daily hints.
+- **Hand-offs** (`src/ui/handoffs.ts`): `registerHandoff('book' | 'contact', handler)`. Defaults: provider sheet,
+  `tel:` / `sms:`. Other modules report back with `logTouch(store, …)` from `rhythms/touch.ts`.
+
 ## Cloud and sync
 
 Set `VITE_SUPABASE_URL` and `VITE_SUPABASE_PUBLISHABLE_KEY` (in `.env.local`, not committed) to sign in with an e-mail code
@@ -68,3 +102,59 @@ Set `VITE_SUPABASE_URL` and `VITE_SUPABASE_PUBLISHABLE_KEY` (in `.env.local`, no
 Sync (`src/core/sync/engine.ts`): rows changed on the device are pushed, rows the cloud stamped since the last pull
 (`synced_at`) are pulled; the newer `updated_at` wins on both sides (`pa_keep_newer` trigger, migration 0002).
 On first sign-in the device's rows move into the person's personal space (`ensure_personal_space`).
+
+## Einkauf & Essen bestellen
+
+Say „Bestell bei gurkerl 2 Liter Milch, 6 Eier und Brot“, „Jeden Freitag Wocheneinkauf bei gurkerl: …“,
+„Bestell Pizza Margherita bei Lieferando“ or „Bestell das Übliche“. PA builds the basket on the device (no AI), reads it
+back and asks once. „Ja“ copies the list and opens the platform (saved favourite shop/restaurant or start page); the user
+orders and pays there and taps „Bestellt“. Recurring baskets show up on Heute a day before their date (semi-automatic).
+Spoken edits on an open basket: „noch Butter dazu“, „ohne Eier“, „diesmal nicht“, „bestellt“.
+
+Platforms (status 26 Nov 2026, `src/core/shopping/platforms.ts`): gurkerl, foodora (also BILLA, MPREIS Innsbruck),
+Lieferando, Wolt, Alfies. SPAR/INTERSPAR and HOFER no longer deliver groceries, BILLA's own delivery ended in Jan 2026.
+None of them has a public customer ordering API (Lieferando, foodora and Wolt only offer merchant/courier APIs).
+gurkerl runs an official MCP server (`https://mcp.gurkerl.at/mcp`, OAuth with the user's gurkerl account) with search and
+cart, so PA can later fill the gurkerl cart directly; the order is still sent in gurkerl. PA never orders or pays itself.
+
+Rules and rankings (on „Meine Anbieter“, `src/core/shopping/choose.ts`, `rules.ts`): „Alkohol bestelle ich bei Alfies“,
+„Am Wochenende bei foodora“, „Italienisch: Riva, Da Mario, Bella Napoli“. A basket goes to: the platform said aloud ›
+category/cuisine rule › weekend/weekday rule › general order › platforms switched on. Mixed baskets are split
+(„Rotwein kommt extra zu Alfies“), „nächstes“ switches to the next place. After a food order PA asks „Wie war's?“;
+„Riva war super“ / „war schlecht“ / „nie wieder“ moves the restaurant up, down or off its list.
+## Appointment reminders and leave-by times
+
+PA reminds of every timed appointment (own and subscribed calendars). With a place it works out when to leave:
+route time for the person's mode (usual, per day or per appointment) plus buffer, a heads-up before and "Jetzt los"
+with one action (navigation). Without a place, a reminder a few minutes ahead; with a meeting link, "Beitreten".
+The trip starts at the appointment right before, else where the phone is (if allowed), else the home address.
+
+Routes: cloud function `travel-time` asks the Google Routes API (live traffic, Wiener Linien/ÖBB). It needs the function
+secret `GOOGLE_MAPS_API_KEY` (Google Cloud project with "Routes API" enabled, key restricted to that API). Without the key,
+without sign-in or offline, PA geocodes with OpenStreetMap and estimates from the distance (shown as "geschätzt").
+Settings live on the device (Ich › Wege & Erinnerungen) and can be said in a memo: „Heute bin ich mit dem Auto unterwegs“.
+
+Web version: notifications show while PA is open or in the background. Lock-screen reminders with PA closed need the
+phone shell's local notifications (or web push) and plug into `src/platform/notify.ts`.
+
+## Integration: one mic, Meine Anbieter, hand-offs, gurkerl cart
+
+- **One mic** (`src/core/intent/route.ts`): every spoken or typed sentence goes to exactly one feature, in this order:
+  Meine Anbieter commands → Wege → Nachricht → Einkauf & Essen → Rhythmus → Bei Anbietern prüfen → Memo. Each route ends
+  in one confirm (spoken „ja“ or one tap). Reminders („Erinner mich …“, „Wenn … dann …“) always stay memos.
+- **Meine Anbieter** (`src/core/anbieter/`, `src/ui/Anbieter.tsx`): lists Lebensmittel, Essen bestellen, Friseur,
+  Kosmetik & Nägel, Ärzte (per field), Restaurant, Tickets, Babysitter, each in the person's own order (drag handle,
+  arrows, or voice: „gurkerl zuerst“, „Haarwerk auf Platz 2“, „Neuer Friseur Salon Lisa 01 234 56 78“, „Barber Joe löschen“).
+  Stored in the `favourite` table: shop entries have `system = 'shop'` and the platform id in `system_ref`; own keywords
+  per list are rows with `system = 'keyword'` („Stichwort Spitzen für Friseur“). No new table or column. Keywords and
+  names steer the router and are passed to the recogniser as hints where Chrome supports it.
+- **Hand-offs** (`src/ui/wiring.ts`, `src/ui/flows.tsx`): rhythm „Friseurtermin buchen?“ → check on Meine Anbieter;
+  rhythm „Ben schreiben?“ → message composer; sent messages count for rhythms; babysitter/doctor requests → message
+  templates with read-back; booked slots → `core/calendar/appointments.ts` (event + rhythm paused until then);
+  regular orders of the same basket → proposal for a recurring basket (`core/shopping/rhythm.ts`).
+- **gurkerl cart** (`core/shopping/gurkerl.ts`, `platform/gurkerl.ts`): optional, off by default. One sign-in with the
+  person's gurkerl account (OAuth/PKCE against gurkerl's official MCP server); then „gurkerl öffnen“ also puts the items
+  into the gurkerl cart. PA never checks out. Tokens stay on the device. Browser fallback: function `mcp-relay`.
+
+Local migrations after the merge: v3 shopping, v4 favourites, v5 event location, v6 rhythms. Cloud: 0004 favourite,
+0005 event location (both applied), 0006 shopping and 0007 rhythms (to run).

@@ -36,6 +36,11 @@ export interface ListenHandlers {
   /** Always called last, also after errors and stop(). */
   onEnd?: () => void;
   onError?: (code: string) => void;
+  /**
+   * Names and keywords the person uses (Meine Anbieter). Passed as recognition hints where the browser supports
+   * them (Chrome's contextual phrases); elsewhere ignored, the router still matches them in the text.
+   */
+  phrases?: string[];
 }
 
 /** Listens for one utterance. Returns stop(). */
@@ -52,6 +57,7 @@ export function listen(h: ListenHandlers): () => void {
   r.interimResults = true;
   r.continuous = false;
   r.maxAlternatives = 1;
+  if (h.phrases?.length) hint(r, h.phrases);
   let final = '';
   r.onresult = (e) => {
     let interim = '';
@@ -72,6 +78,15 @@ export function listen(h: ListenHandlers): () => void {
   };
   try { r.start(); } catch { h.onError?.('start-failed'); h.onEnd?.(); }
   return () => { try { r.stop(); } catch { /* already stopped */ } };
+}
+
+/** Best effort: newer Chrome takes `phrases` (SpeechRecognitionPhrase with a boost). Never fails the listening. */
+function hint(r: Recognition, phrases: string[]): void {
+  const g = globalThis as unknown as { SpeechRecognitionPhrase?: new (p: string, boost?: number) => unknown };
+  const target = r as unknown as { phrases?: unknown[] };
+  try {
+    if (g.SpeechRecognitionPhrase && 'phrases' in target) target.phrases = phrases.map((p) => new g.SpeechRecognitionPhrase!(p, 3));
+  } catch { /* not supported in this browser */ }
 }
 
 function germanVoice(): SpeechSynthesisVoice | undefined {

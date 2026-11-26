@@ -4,6 +4,7 @@ import type { DeadlineKind, Order } from '../core/model';
 import { cancel, complete, isActive, markRequested, nextOccurrence } from '../core/orders/flow';
 import { formatShort } from '../core/time/dates';
 import { usePA } from './context';
+import { useFlows } from './flows';
 import { Card, Chip, Empty, Field, Section } from './kit';
 
 const KIND_LABEL: Record<Order['kind'], string> = {
@@ -31,6 +32,7 @@ function OrderList() {
   const active = all.filter(isActive).sort((a, b) => (a.dueDate ?? '9').localeCompare(b.dueDate ?? '9'));
   const closed = all.filter((o) => !isActive(o)).slice(-10).reverse();
   const save = (o: Order) => { store.save('order', o); refresh(); };
+  const flows = useFlows();
 
   const when = (o: Order) => {
     if (o.kind === 'recurring') { const n = nextOccurrence(o); return n ? `wieder ${formatShort(n, today)}` : ''; }
@@ -59,6 +61,7 @@ function OrderList() {
             <div className="actions">
               {o.state === 'open' && o.kind !== 'location' && o.kind !== 'birthday' &&
                 <button onClick={() => save(markRequested(o, today))}>Angefragt</button>}
+              {flows && <button className="pa-do" onClick={() => flows.openDoIt(o.id)}>PA erledigt das</button>}
               <button className="primary" onClick={() => save(complete(o, today))}>Erledigt</button>
               <button onClick={() => save(cancel(o))}>Abbrechen</button>
             </div>

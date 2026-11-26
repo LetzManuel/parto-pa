@@ -5,16 +5,23 @@ import { formatLong, fromISO, WEEKDAY_NAMES, formatShort } from '../core/time/da
 import { allEvents } from '../core/calendar/feeds';
 import { DEADLINE_KINDS } from '../core/deadlines/deadlines';
 import { runAction } from './actions';
+import { useFlows } from './flows';
+import { suggestionsFor } from '../core/rhythms/touch';
+import { RhythmCard } from './RhythmCard';
 import { usePA } from './context';
-import { Card, Empty, Section } from './kit';
+import { Card, Empty, Section , KIND_LABEL, type CardKind } from './kit';
+import { RestaurantFeedback, ShoppingToday } from './Shopping';
+import { NextUp } from './NextUp';
 
-export function Today({ onOpenProvider }: { onOpenProvider: (id: string) => void }) {
+export function Today({ onOpenProvider, onOpenBasket, onFind, onOpenMe }: { onOpenProvider: (id: string) => void; onOpenBasket: (id: string) => void; onFind: () => void; onOpenMe: () => void }) {
   const { store, today, refresh } = usePA();
   const b = buildBriefing({
     orders: store.list('order'), deadlines: store.list('deadline'), providers: store.list('provider'),
     memory: store.list('memory'), events: allEvents(store),
   }, today);
-  const active = activeHints(b);
+  // One rhythm suggestion ("Friseurtermin buchen?", "Anna anrufen?") counts as one of the three hints a day.
+  const rhythm = suggestionsFor(store, today);
+  const active = activeHints(b, rhythm.length ? 1 : 0);
   const quiet = b.decisions.slice(active.length);
 
   const act = (h: Hint, id: Parameters<typeof runAction>[2]) => {
@@ -39,9 +46,16 @@ export function Today({ onOpenProvider }: { onOpenProvider: (id: string) => void
             : `${b.decisions.length} ${b.decisions.length === 1 ? 'Sache wartet' : 'Sachen warten'} auf dich, ${b.paHandles.length} erledigt PA.`}
         </p>
       </header>
+      <button className="find" onClick={onFind}>
+        <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 3a3 3 0 00-3 3v6a3 3 0 006 0V6a3 3 0 00-3-3zM5 11a7 7 0 0014 0M12 18v3" /></svg>
+        <span><b>Termin, Tisch, Tickets …</b><br /><span className="meta">Sag, was du brauchst. PA prüft deine Anbieter der Reihe nach.</span></span>
+      </button>
+
+      <NextUp />
 
       <Section title="Wartet auf dich">
-        {active.length === 0 && <Empty>Keine Entscheidungen heute.</Empty>}
+        <RhythmCard suggestions={rhythm} onOpenProvider={onOpenProvider} onOpenMe={onOpenMe} />
+        {active.length === 0 && rhythm.length === 0 && <Empty>Keine Entscheidungen heute.</Empty>}
         {active.map((h) => <HintCard key={h.key} h={h} onAction={(id) => act(h, id)} />)}
         {quiet.length > 0 && (
           <details className="more">
@@ -50,6 +64,9 @@ export function Today({ onOpenProvider }: { onOpenProvider: (id: string) => void
           </details>
         )}
       </Section>
+
+      <ShoppingToday onOpen={onOpenBasket} />
+      <RestaurantFeedback />
 
       <Section title="Heute im Kalender">
         {b.events.length === 0 ? <Empty>Keine Termine.</Empty> : (
@@ -83,15 +100,28 @@ export function Today({ onOpenProvider }: { onOpenProvider: (id: string) => void
   );
 }
 
+function hintKind(h: Hint): CardKind {
+  const ids = h.actions.map((a) => a.id);
+  if (h.target.type === 'deadline') return 'frist';
+  if (ids.includes('fallback') || ids.includes('requested') || ids.includes('wait')) return 'warten';
+  if (ids.includes('book')) return 'termin';
+  if (/^Geburtstag\b/.test(h.title)) return 'person';
+  return 'aufgabe';
+}
+
 function HintCard({ h, onAction }: { h: Hint; onAction: (id: Hint['actions'][number]['id']) => void }) {
+  const flows = useFlows();
+  const kind = hintKind(h);
   return (
-    <Card tone={h.priority >= 80 ? 'warn' : 'accent'}>
+    <Card tone={h.priority >= 80 ? 'warn' : 'accent'} kind={kind}>
+      <div className="kind-label">{KIND_LABEL[kind]}</div>
       <div className="hint-title">{h.title}</div>
       <div className="hint-text">{h.text}</div>
       <div className="actions">
         {h.actions.map((a, i) => (
           <button key={a.id} className={i === 0 ? 'primary' : ''} onClick={() => onAction(a.id)}>{a.label}</button>
         ))}
+        {flows && h.target.type === 'order' && <button className="pa-do" onClick={() => flows.openDoIt(h.target.id)}>PA erledigt das</button>}
       </div>
     </Card>
   );

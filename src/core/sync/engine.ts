@@ -12,7 +12,7 @@ export interface Remote {
   pull(table: string, since: string | null, limit: number): Promise<RawRow[]>;
 }
 
-export const SYNC_ORDER: TableKey[] = ['provider', 'order', 'deadline', 'memory', 'event', 'memo'];
+export const SYNC_ORDER: TableKey[] = ['provider', 'order', 'deadline', 'memory', 'event', 'memo', 'shopList', 'shopRun', 'favourite', 'rhythm', 'touch'];
 const BOOLS = new Set(['deleted', 'tentative']);
 const PAGE = 500;
 

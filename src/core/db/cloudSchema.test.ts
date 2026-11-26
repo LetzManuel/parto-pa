@@ -50,4 +50,25 @@ describe('cloud schema on the shared core', () => {
     await db.exec(`set role postgres; delete from user_app where user_id = '${A}';`);
     await expect(as(db, A, INSERT, order(sa, 'ohne PA'))).rejects.toThrow(/row-level security/);
   });
+
+  it('keeps shopping lists, order history and favourites (doctors!) in the personal space only', async () => {
+    const db = await testCloud([A, B]);
+    const sa = await space(db, A);
+    await space(db, B);
+    await db.exec(`set role postgres;
+      insert into groups (id, kind, name, created_by) values ('${FAM}', 'family', 'Familie', '${A}');
+      insert into group_members (group_id, user_id, first_name, role) values ('${FAM}', '${A}', 'Anna', 'parent'), ('${FAM}', '${B}', 'Ben', 'parent');`);
+    const LIST = 'insert into shop_list (id, space_id, name, kind, items, created_at, updated_at) values ($1, $2, $3, $4, $5, $6, $7)';
+    await as(db, A, LIST, [crypto.randomUUID(), sa, 'Wocheneinkauf', 'grocery', 'Milch', now(), now()]);
+    await expect(as(db, A, LIST, [crypto.randomUUID(), FAM, 'Familie', 'grocery', 'Milch', now(), now()])).rejects.toThrow(/row-level security/);
+    await as(db, A, 'insert into shop_run (id, space_id, date, items, created_at, updated_at) values ($1, $2, $3, $4, $5, $6)', [crypto.randomUUID(), sa, '2026-11-26', 'Milch', now(), now()]);
+    expect((await as(db, B, 'select name from shop_list')).rows).toEqual([]);
+    expect((await as(db, B, 'select id from shop_run')).rows).toEqual([]);
+    expect((await as(db, A, 'select name from shop_list')).rows).toEqual([{ name: 'Wocheneinkauf' }]);
+    const FAV = 'insert into favourite (id, space_id, kind, topic, priority, name, system, created_at, updated_at) values ($1, $2, $3, $4, $5, $6, $7, $8, $9)';
+    await as(db, A, FAV, [crypto.randomUUID(), sa, 'doctor', 'Zahnarzt', 1, 'Dr. Zahn', 'doctolib', now(), now()]);
+    await expect(as(db, A, FAV, [crypto.randomUUID(), FAM, 'doctor', 'Zahnarzt', 1, 'Dr. Familie', 'manual', now(), now()])).rejects.toThrow(/row-level security/);
+    expect((await as(db, A, 'select name from favourite')).rows.map((r) => r.name)).toEqual(['Dr. Zahn']);
+    expect((await as(db, B, 'select name from favourite')).rows).toEqual([]);
+  });
 });

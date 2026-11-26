@@ -20,3 +20,11 @@ self.addEventListener('fetch', (e) => {
     return r;
   })));
 });
+
+// Reminder tapped: its one action (navigation, join the call) opens directly, otherwise PA comes to the front.
+self.addEventListener('notificationclick', (e) => {
+  e.notification.close();
+  const url = e.notification.data && e.notification.data.url;
+  e.waitUntil(url ? self.clients.openWindow(url)
+    : self.clients.matchAll({ type: 'window' }).then((ws) => (ws[0] ? ws[0].focus() : self.clients.openWindow('./'))));
+});

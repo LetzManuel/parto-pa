@@ -15,6 +15,8 @@ export interface ImportedEvent {
   endDate: ISODate;
   /** Counts as busy for free windows (not "free"/transparent, not cancelled). */
   busy: boolean;
+  /** LOCATION as written in the calendar (address, place name or a meeting link), null if none. */
+  location?: string | null;
 }
 
 export const localZone = (): string => Intl.DateTimeFormat().resolvedOptions().timeZone || 'Europe/Vienna';
@@ -91,6 +93,7 @@ export function parseIcs(text: string, from: ISODate, to: ISODate, tz = localZon
       end: allDay ? null : le.slice(11),
       endDate: le.slice(0, 10),
       busy: !free,
+      location: cleanLocation(v.getFirstPropertyValue('location')),
     });
   };
 
@@ -113,6 +116,12 @@ export function parseIcs(text: string, from: ISODate, to: ISODate, tz = localZon
     }
   }
   return out.sort((a, b) => (a.date + (a.start ?? '')).localeCompare(b.date + (b.start ?? '')));
+}
+
+/** One line, no surrounding blanks; empty means none. */
+export function cleanLocation(v: unknown): string | null {
+  const s = typeof v === 'string' ? v.replace(/\s*\n\s*/g, ', ').replace(/\s+/g, ' ').trim() : '';
+  return s || null;
 }
 
 /** webcal:// links are plain https underneath. */

@@ -1,16 +1,33 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { isMessageIntent, parseCommand, parseRequest } from '../core/messages';
+import { parseCommand } from '../core/messages';
 import { formatShort } from '../core/time/dates';
 import { canListen, listen, speak, stopSpeaking } from '../platform/speech';
 import { MessageComposer, useRecipients, type ComposerStart } from './Message';
 import { MicButton } from './Mic';
+import type { ShopIntent } from '../core/shopping/parse';
+import { readBack } from '../core/shopping/lists';
+import { platform } from '../core/shopping/platforms';
+import { basketFor, basketSentence, openPlatform, ShoppingCapture } from './Shopping';
 import { stamp, type Order } from '../core/model';
 import { createOrder } from '../core/orders/flow';
 import { createMemory, sourceFromMemo, CATEGORY_LABEL, guessCategory } from '../core/memory/memory';
 import { suggest, TEMPLATES, type Suggestion, type TemplateId } from '../core/templates/templates';
 import type { Unit } from '../core/time/dates';
 import { usePA } from './context';
-import { Chip, Field } from './kit';
+import { KIND_LABEL } from '../core/favourites/model';
+import { Card, Chip, Field } from './kit';
+import { upcomingTimed } from '../core/calendar/upcoming';
+import { applyCommand, type TravelCommand } from '../core/travel/voice';
+import { route } from '../core/intent/route';
+import { speechPhrases } from '../core/anbieter/lists';
+import { applyAnbieterCommand, type AnbieterCommand } from '../core/anbieter/voice';
+import { describeCommand, type RhythmCommand } from '../core/rhythms/say';
+import { applyCommand as applyRhythm } from '../core/rhythms/touch';
+import { intervalText } from '../core/rhythms/engine';
+import { RhythmConfirm } from './Rhythms';
+import { useFlows } from './flows';
+import { getPrefs, setPrefs } from '../core/travel/prefs';
+import { tick } from '../platform/reminders';
 
 const UNITS: Array<[Unit, string]> = [['week', 'Wochen'], ['month', 'Monate'], ['year', 'Jahre']];
 
@@ -18,7 +35,7 @@ const UNITS: Array<[Unit, string]> = [['week', 'Wochen'], ['month', 'Monate'], [
  * The microphone tab: say anything. "Schreib Anna, dass …" becomes a message, everything else a memo that a
  * fixed template turns into an order. Nothing is saved or sent before a spoken or tapped confirmation.
  */
-export function Capture({ onDone }: { onDone: () => void }) {
+export function Capture({ onDone, onOpenBasket, onFind }: { onDone: () => void; onOpenBasket: (id: string) => void; onFind: (text: string) => void }) {
   const { store, today, refresh } = usePA();
   const recipients = useRecipients();
   const [text, setText] = useState('');
@@ -35,6 +52,7 @@ export function Capture({ onDone }: { onDone: () => void }) {
     stopRef.current();
     setListening(true);
     stopRef.current = listen({
+      phrases: speechPhrases(store.list('favourite')),
       onInterim: (t) => setVoiceNote(`„${t}“`),
       onFinal,
       onEnd: () => setListening(false),
@@ -42,16 +60,38 @@ export function Capture({ onDone }: { onDone: () => void }) {
     });
   };
 
-  // First utterance: message or memo.
+  function applyTravelCmd(cmd: TravelCommand) {
+    setPrefs(store, applyCommand(getPrefs(store), cmd), today);
+    tick(store).then(refresh).catch(() => { /* next round */ });
+  }
+  const rhythmText = (c: RhythmCommand) => describeCommand(c, intervalText, (d) => formatShort(d, today));
+
+  const flows = useFlows();
+  const ctx = () => ({ today, favourites: store.list('favourite'), recipients, upcoming: upcomingTimed(store, Date.now(), 48), orders: store.list('order') });
+  const yes = (t: string) => parseCommand(t)?.type === 'send' || /^(ja|passt|ok|okay|genau|gerne|speicher|übernehm|mach)/i.test(t.trim());
+  /** Read the confirm sentence, one spoken "ja" applies it. */
+  const confirmByVoice = (sentence: string, apply: () => string) => speak(sentence).then(() => hear((t) => {
+    if (!yes(t)) { setVoiceNote('Nichts geändert. Unten antippen oder nochmal sagen.'); return; }
+    const done = apply();
+    refresh(); setText(''); setVoiceNote(done); void speak(done);
+  }));
+
+  // First utterance: the router picks the feature (see core/intent/route.ts).
   const start = () => hear((said) => {
     setVoiceNote(null);
-    if (isMessageIntent(said)) {
-      const r = parseRequest(said, recipients, today);
-      setMessage({ recipient: r.recipient, template: r.template, channel: r.channel, body: r.body, when: r.when, voice: true });
+    const r = route(said, ctx());
+    if (r.to === 'message') {
+      setMessage({ recipient: r.req.recipient, template: r.req.template, channel: r.req.channel, body: r.req.body, when: r.req.when, voice: true });
       return;
     }
+    if (r.to === 'booking') { onFind(said); return; }
+    if (r.to === 'doit') { flows?.openDoIt(r.orderId, r.said); return; }
     setText(said); setEdit({}); setPicked(null);
-    const [best] = suggest(said, today);
+    if (r.to === 'shopping') { voiceBasket(r.intent); return; }
+    if (r.to === 'anbieter') { confirmByVoice(r.cmd.confirm, () => applyAnbieterCommand(store, r.cmd)); return; }
+    if (r.to === 'travel') { confirmByVoice(r.cmd.confirm, () => { applyTravelCmd(r.cmd); return 'Übernommen.'; }); return; }
+    if (r.to === 'rhythm') { confirmByVoice(`${rhythmText(r.cmd)}?`, () => applyRhythm(store, r.cmd, today)); return; }
+    const best = r.best;
     if (best && best.confidence >= 0.85) {
       const label = TEMPLATES.find((t) => t.id === best.template)!.label;
       speak(`${label}: ${best.title}${best.dueDate ? `, ${formatShort(best.dueDate, today)}` : ''}. Speichern?`).then(() =>
@@ -65,6 +105,33 @@ export function Capture({ onDone }: { onDone: () => void }) {
     }
   });
 
+  // Shopping / food: read the basket back, one spoken "ja" saves it and opens the platform.
+  const voiceBasket = (intent: ShopIntent, pick = 0) => {
+    const draft = basketFor(store, intent, today, pick);
+    const { list, saved } = draft;
+    if (!list) { speak(`Keine Liste ${intent.reuse} gefunden.`); return; }
+    const p = platform(list.platformId);
+    const recurring = !saved && !!list.everyN;
+    const ask = recurring ? 'Korb anlegen?' : p ? `Soll ich ${p.name} öffnen?` : 'Passt die Liste?';
+    const more = draft.alternatives.length ? ' Oder sag „nächstes“.' : '';
+    speak(saved ? readBack(list, p) : basketSentence(draft, ask + (pick === 0 ? more : ''))).then(() => hear((yes) => {
+      // "nächstes" / "anderes": the next place on the person's list (Platz 2, 3, …).
+      if (!saved && draft.alternatives.length && /^(nächst|ander|weiter|platz\s*\d|nein,?\s*(das\s+)?(nächst|ander))/i.test(yes.trim())) { voiceBasket(intent, pick + 1); return; }
+      const c = parseCommand(yes);
+      if (!(c?.type === 'send' || /^(ja|passt|ok|öffnen|bestellen|anlegen|speicher)/i.test(yes.trim()))) {
+        setVoiceNote('Nichts gespeichert. Unten ändern oder antippen.');
+        return;
+      }
+      const l = saved ? list : store.save('shopList', list);
+      if (!saved) for (const a of draft.also) store.save('shopList', a.list);
+      if (!recurring && p && !openPlatform(store, l, today)) setVoiceNote(`Liste kopiert. Tippe auf „${p.name} öffnen“.`);
+      refresh();
+      onOpenBasket(l.id);
+      setText('');
+    }));
+  };
+
+
   // Opening the tab starts listening at once: phone in hand, no searching.
   useEffect(() => {
     if (canListen()) start();
@@ -72,7 +139,25 @@ export function Capture({ onDone }: { onDone: () => void }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Typed text goes through the same router as speech.
+  const routed = useMemo(() => route(text, ctx()), [text, today, store, recipients]); // eslint-disable-line react-hooks/exhaustive-deps
+  const shopIntent = routed.to === 'shopping' ? routed.intent : null;
+  const booking = routed.to === 'booking' ? routed.req : null;
+  const doit = routed.to === 'doit' ? routed : null;
+  const anbieter: AnbieterCommand | null = routed.to === 'anbieter' ? routed.cmd : null;
+  const rhythm: RhythmCommand | null = routed.to === 'rhythm' ? routed.cmd : null;
   const suggestions = useMemo(() => suggest(text, today), [text, today]);
+  // "Heute bin ich mit dem Auto unterwegs": a travel setting, not an order. One tap applies it.
+  const travel = routed.to === 'travel' ? routed.cmd : null;
+  /** A command that is not a memo: travel, Meine Anbieter or a rhythm. Hides the memo form. */
+  const command = !!(travel || anbieter || rhythm || doit);
+  // A booking request shows the check button only; picking a template chip turns it back into a memo.
+  const special = command || (!!booking && !picked);
+  const applyTravel = () => {
+    if (!travel) return;
+    applyTravelCmd(travel);
+    refresh(); setText('');
+  };
   const base = suggestions.find((s) => s.template === picked) ?? (picked ? { template: picked, title: text, dueDate: null, confidence: 0 } : suggestions[0]);
   const s: Suggestion | undefined = base ? { ...base, ...edit } as Suggestion : undefined;
   const tpl = s?.template;
@@ -117,7 +202,7 @@ export function Capture({ onDone }: { onDone: () => void }) {
           <MicButton active={listening} onClick={() => (listening ? stopRef.current() : start())} />
           <div className="voice-hint">
             {voiceNote ?? (listening ? 'Ich höre …' : 'Tippen und sprechen')}
-            <div className="meta">„Schreib Studio Nails, dass ich morgen 10 Minuten später komme“ · „Erinner mich morgen an die Steuer“</div>
+            <div className="meta">„Friseur morgen 14 bis 17 Uhr“ · „Schreib Studio Nails, dass ich 10 Minuten später komme“ · „Bestell bei gurkerl Milch und Eier“ · „Friseur alle 5 Wochen“ · „gurkerl zuerst“ · „Erinner mich morgen an die Steuer“</div>
           </div>
         </div>
       )}
@@ -131,16 +216,44 @@ export function Capture({ onDone }: { onDone: () => void }) {
         onChange={(e) => { setText(e.target.value); setEdit({}); setPicked(null); }}
       />
       <p className="hint-line">PA erkennt feste Formen direkt auf dem Gerät, ohne KI.</p>
+      {shopIntent && <ShoppingCapture intent={shopIntent} onSaved={(id) => { setText(''); onOpenBasket(id); }} />}
+      {!shopIntent && <>
 
-      <div className="chips">
+      {travel && (
+        <div className="travel-cmd">
+          <Card tone="accent">
+            <div className="hint-title">Wege</div>
+            <div className="hint-text">{travel.confirm}</div>
+            <div className="actions"><button className="primary" onClick={applyTravel}>Übernehmen</button></div>
+          </Card>
+        </div>
+      )}
+      {anbieter && (
+        <div className="travel-cmd">
+          <Card tone="accent">
+            <div className="hint-title">Meine Anbieter</div>
+            <div className="hint-text">{anbieter.confirm}</div>
+            <div className="actions"><button className="primary" onClick={() => { setVoiceNote(applyAnbieterCommand(store, anbieter)); refresh(); setText(''); }}>Ja</button></div>
+          </Card>
+        </div>
+      )}
+      {doit && (
+        <div className="actions"><button className="pa-do" onClick={() => { flows?.openDoIt(doit.orderId, doit.said); setText(''); }}>PA erledigt das{doit.orderId ? `: ${store.get('order', doit.orderId)?.title ?? ''}` : ''}</button></div>
+      )}
+      {rhythm && <div className="travel-cmd"><RhythmConfirm command={rhythm} onSaved={(m) => { setVoiceNote(m); setText(''); }} /></div>}
+
+      <div className="chips" hidden={command}>
         {TEMPLATES.map((t) => <Chip key={t.id} active={tpl === t.id} onClick={() => choose(t.id)}>{t.label}</Chip>)}
       </div>
-      {!tpl && text.trim() && <p className="hint-line">Keine Form erkannt. Wähle eine aus oder speichere es als Notiz.</p>}
+      {booking && (
+        <div className="actions"><button className="primary" onClick={() => { onFind(text); setText(''); }}>Bei meinen Anbietern prüfen ({booking.topic ?? KIND_LABEL[booking.kind]})</button></div>
+      )}
+      {!tpl && !special && !booking && text.trim() && <p className="hint-line">Keine Form erkannt. Wähle eine aus oder speichere es als Notiz.</p>}
       {!text.trim() && (
         <ul className="patterns">{TEMPLATES.map((t) => <li key={t.id}>{t.pattern}</li>)}</ul>
       )}
 
-      {s && tpl && (
+      {s && tpl && !special && (
         <div className="form">
           <Field label={tpl === 'birthday' ? 'Wer' : 'Was'}>
             <input value={tpl === 'birthday' ? s.person ?? '' : s.title}
@@ -175,10 +288,11 @@ export function Capture({ onDone }: { onDone: () => void }) {
         </div>
       )}
 
-      <div className="actions sticky">
+      <div className="actions sticky" hidden={special}>
         <button disabled={!text.trim()} onClick={save} hidden={!!tpl}>Als Notiz speichern</button>
         <button className="primary" disabled={!text.trim() || !tpl || (tpl !== 'location' && tpl !== 'recurring' && !s?.dueDate)} onClick={save}>Speichern</button>
       </div>
+      </>}
     </div>
   );
 }
