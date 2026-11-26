@@ -5,16 +5,20 @@ import { formatLong, fromISO, WEEKDAY_NAMES, formatShort } from '../core/time/da
 import { allEvents } from '../core/calendar/feeds';
 import { DEADLINE_KINDS } from '../core/deadlines/deadlines';
 import { runAction } from './actions';
+import { suggestionsFor } from '../core/rhythms/touch';
+import { RhythmCard } from './RhythmCard';
 import { usePA } from './context';
 import { Card, Empty, Section } from './kit';
 
-export function Today({ onOpenProvider }: { onOpenProvider: (id: string) => void }) {
+export function Today({ onOpenProvider, onOpenMe }: { onOpenProvider: (id: string) => void; onOpenMe: () => void }) {
   const { store, today, refresh } = usePA();
   const b = buildBriefing({
     orders: store.list('order'), deadlines: store.list('deadline'), providers: store.list('provider'),
     memory: store.list('memory'), events: allEvents(store),
   }, today);
-  const active = activeHints(b);
+  // One rhythm suggestion ("Friseurtermin buchen?", "Anna anrufen?") counts as one of the three hints a day.
+  const rhythm = suggestionsFor(store, today);
+  const active = activeHints(b, rhythm.length ? 1 : 0);
   const quiet = b.decisions.slice(active.length);
 
   const act = (h: Hint, id: Parameters<typeof runAction>[2]) => {
@@ -41,7 +45,8 @@ export function Today({ onOpenProvider }: { onOpenProvider: (id: string) => void
       </header>
 
       <Section title="Wartet auf dich">
-        {active.length === 0 && <Empty>Keine Entscheidungen heute.</Empty>}
+        <RhythmCard suggestions={rhythm} onOpenProvider={onOpenProvider} onOpenMe={onOpenMe} />
+        {active.length === 0 && rhythm.length === 0 && <Empty>Keine Entscheidungen heute.</Empty>}
         {active.map((h) => <HintCard key={h.key} h={h} onAction={(id) => act(h, id)} />)}
         {quiet.length > 0 && (
           <details className="more">

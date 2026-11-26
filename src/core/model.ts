@@ -102,3 +102,45 @@ export function stamp<T extends object>(data: T, now = new Date()): T & Row {
   const t = now.toISOString();
   return { id: newId(), createdAt: t, updatedAt: t, ...data };
 }
+
+/** What a rhythm is about: an appointment to book, a person to be in touch with, or anything else. */
+export type RhythmKind = 'booking' | 'contact' | 'task';
+/** active: suggests; paused: kept but silent; dismissed: a learned rhythm the user said no to (not proposed again). */
+export type RhythmStatus = 'active' | 'paused' | 'dismissed';
+/** 'learned' = PA saw it in the history and the user confirmed it; 'manual' = entered by the user. */
+export type RhythmOrigin = 'manual' | 'learned';
+export type ContactChannel = 'call' | 'message';
+
+/** "Friseur etwa alle 5 Wochen", "Mit Anna alle 3 Wochen telefonieren". */
+export interface Rhythm extends Row {
+  /** Stable subject key: 'friseur', 'person:anna', 'task:auto waschen'. One rhythm per key. */
+  subject: string;
+  /** Display name: "Friseur", "Anna". */
+  label: string;
+  kind: RhythmKind;
+  status: RhythmStatus;
+  origin: RhythmOrigin;
+  everyN: number;
+  everyUnit: Unit;
+  /** Last time it happened (visit, call, meeting). Null = counting from createdAt. */
+  lastDone: ISODate | null;
+  /** No suggestion before this date ("Später"). */
+  snoozedUntil: ISODate | null;
+  providerId: string | null;
+  /** Contact rhythms: number for "Anrufen" and how the user prefers to reach the person. */
+  phone: string | null;
+  channel: ContactChannel | null;
+  note: string | null;
+}
+
+export type TouchSource = 'manual' | 'voice' | 'suggestion' | 'message' | 'booking' | 'calendar';
+
+/** One time something happened ("mit Anna telefoniert", "war beim Friseur"). History for rhythms. */
+export interface Touch extends Row {
+  subject: string;
+  kind: RhythmKind;
+  date: ISODate;
+  source: TouchSource;
+  /** 'in' = the other person got in touch ("Anna hat angerufen"), 'out' = the user did. */
+  direction: 'in' | 'out' | null;
+}

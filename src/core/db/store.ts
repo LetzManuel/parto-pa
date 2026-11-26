@@ -1,5 +1,5 @@
 import type { Database, SqlValue } from 'sql.js';
-import type { CalEvent, Deadline, MemoryEntry, Memo, Order, Provider } from '../model';
+import type { CalEvent, Deadline, MemoryEntry, Memo, Order, Provider, Rhythm, Touch } from '../model';
 import { MIGRATIONS, TABLES, type TableKey } from './schema';
 
 export interface RowTypes {
@@ -9,6 +9,8 @@ export interface RowTypes {
   memory: MemoryEntry;
   event: CalEvent;
   memo: Memo;
+  rhythm: Rhythm;
+  touch: Touch;
 }
 
 const snake = (s: string) => s.replace(/[A-Z]/g, (c) => '_' + c.toLowerCase());
@@ -69,10 +71,10 @@ export class Store {
     this.onChange();
   }
 
-  /** "Alles vergessen": deletes memory and memos at once (assistant history follows in Phase 2). */
+  /** "Alles vergessen": deletes memory, memos and the contact/visit history at once (assistant history follows in Phase 2). */
   forgetAll(): void {
     const now = new Date().toISOString();
-    for (const t of ['memory', 'memo'] as const) {
+    for (const t of ['memory', 'memo', 'touch'] as const) {
       this.db.run(`UPDATE ${TABLES[t].name} SET deleted = 1, dirty = 1, updated_at = ? WHERE space_id = ? AND deleted = 0`, [now, this.spaceId]);
     }
     this.onChange();

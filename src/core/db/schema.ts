@@ -42,6 +42,18 @@ export const MIGRATIONS: string[] = [
   ALTER TABLE cal_event ADD COLUMN dirty INTEGER NOT NULL DEFAULT 1;
   ALTER TABLE memo ADD COLUMN dirty INTEGER NOT NULL DEFAULT 1;
   `,
+  /* v3: rhythms ("Friseur etwa alle 5 Wochen", "Anna alle 3 Wochen") and their history (touches) */ `
+  CREATE TABLE rhythm (
+    id TEXT PRIMARY KEY, space_id TEXT NOT NULL, subject TEXT NOT NULL, label TEXT NOT NULL, kind TEXT NOT NULL,
+    status TEXT NOT NULL, origin TEXT NOT NULL, every_n INTEGER NOT NULL, every_unit TEXT NOT NULL,
+    last_done TEXT, snoozed_until TEXT, provider_id TEXT, phone TEXT, channel TEXT, note TEXT,
+    created_at TEXT NOT NULL, updated_at TEXT NOT NULL, deleted INTEGER NOT NULL DEFAULT 0, dirty INTEGER NOT NULL DEFAULT 1);
+  CREATE TABLE touch (
+    id TEXT PRIMARY KEY, space_id TEXT NOT NULL, subject TEXT NOT NULL, kind TEXT NOT NULL, date TEXT NOT NULL,
+    source TEXT NOT NULL, direction TEXT,
+    created_at TEXT NOT NULL, updated_at TEXT NOT NULL, deleted INTEGER NOT NULL DEFAULT 0, dirty INTEGER NOT NULL DEFAULT 1);
+  CREATE INDEX touch_subject ON touch (subject, date);
+  `,
 ];
 
 export const TABLES = {
@@ -51,6 +63,8 @@ export const TABLES = {
   memory: { name: 'memory', bools: [] as string[] },
   event: { name: 'cal_event', bools: ['tentative'] },
   memo: { name: 'memo', bools: [] as string[] },
+  rhythm: { name: 'rhythm', bools: [] as string[] },
+  touch: { name: 'touch', bools: [] as string[] },
 } as const;
 
 export type TableKey = keyof typeof TABLES;

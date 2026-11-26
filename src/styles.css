@@ -106,3 +106,14 @@ p.hint { color: var(--muted); font-size: 0.82rem; line-height: 1.4; margin: 4px 
 :root[data-theme="dark"] .brand-logo.on-light { display: none; }
 :root[data-theme="dark"] .brand-logo.on-dark { display: block; }
 .field input:focus, .field select:focus, .add input:focus, textarea.memo:focus { outline: 2px solid var(--pa); outline-offset: 1px; }
+
+/* Rhythms: one suggestion card on "Heute", the mic, "Meine Rhythmen" */
+.suggest-head { display: flex; justify-content: space-between; align-items: baseline; }
+.suggest-label { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.12em; color: var(--link); font-weight: 800; }
+.suggest-title { font-size: 1.2rem; font-weight: 900; margin-top: 2px; line-height: 1.25; }
+button.mic { width: 44px; height: 44px; min-height: 44px; padding: 0; border-radius: 999px; display: inline-flex; align-items: center; justify-content: center; background: var(--pa); color: var(--pa-ink); border-color: var(--pa); flex: none; }
+button.mic.on { background: var(--brand); border-color: var(--brand); color: var(--brand-ink); animation: mic-pulse 1.2s ease-in-out infinite; }
+@keyframes mic-pulse { 50% { box-shadow: 0 0 0 6px var(--accent-line); } }
+.actions button.mic { margin-left: auto; }
+.list li.rhythm { display: block; }
+.rhythm-edit { margin-top: 10px; }

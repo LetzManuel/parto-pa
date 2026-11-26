@@ -29,6 +29,7 @@ src/core/        logic without UI, unit-tested
   memory/        "Was PA über mich weiß", health entries flagged and never shared with AI
   providers/     call cheat sheet, mailto/tel/booking links (PA never sends or calls itself)
   calendar/      free windows (times only, never other appointments' content)
+  rhythms/       personal rhythms (Friseur ~5 Wochen, Anna ~3 Wochen): learned from history or said, suggestion engine
   db/            local SQLite schema (sql.js) and Store
 src/ui/          React screens: Heute, Kalender, + (Memo), Aufträge/Fristen, Ich
 supabase/        cloud schema draft: personal space (group kind 'personal'), is_group_member, has_app, RLS
@@ -44,6 +45,22 @@ supabase/        cloud schema draft: personal space (group kind 'personal'), is_
 
 Cloud sync and sign-in (Parto ID), phone app shell (Tauri, as in Parto Projects), calendar import (ICS/Google/Outlook),
 on-device dictation, geofence for place reminders, push notifications, confirmation by calendar match and share sheet (Phase 2).
+
+## Rhythms and suggestions
+
+`src/core/rhythms/`: PA learns how often things happen and proposes the next step. No AI, all on the device.
+
+- **History** (`history.ts`): logged touches ("Hab gestern mit Anna telefoniert", a tap on a suggestion, a sent message,
+  a fixed booking), calendar titles (own + subscribed: "Friseur", "Kaffee mit Lisa", "Anna anrufen") and a provider's
+  "zuletzt dort". Health appointments never count. **Not read:** the phone's call log, SMS/WhatsApp chats, e-mail.
+- **Learning** (`learn.ts`): ≥ 3 times in the last year, regular gaps (median, ≤ 35 % spread), still alive → a proposal
+  "Lisa etwa alle 2 Wochen? Ja, merken / Nein". Nothing is used before the user confirms; a "Nein" sticks.
+- **Saying it** (`say.ts`): "Friseur alle 5 Wochen", "Mit Anna alle 3 Wochen telefonieren", "Ben jeden Monat schreiben",
+  "Friseur lieber alle 6 Wochen", "Anna hat sich gemeldet", "Anna pausieren". Shown as one confirm line.
+- **Suggestions** (`engine.ts`): one card on "Heute" ("Friseurtermin buchen?" a week ahead, "Anna anrufen?" when due),
+  one tap or one spoken word (ja / später / nein). It counts as one of the three daily hints.
+- **Hand-offs** (`src/ui/handoffs.ts`): `registerHandoff('book' | 'contact', handler)`. Defaults: provider sheet,
+  `tel:` / `sms:`. Other modules report back with `logTouch(store, …)` from `rhythms/touch.ts`.
 
 ## Cloud and sync
 
