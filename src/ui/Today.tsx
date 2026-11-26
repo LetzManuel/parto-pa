@@ -7,6 +7,7 @@ import { DEADLINE_KINDS } from '../core/deadlines/deadlines';
 import { runAction } from './actions';
 import { usePA } from './context';
 import { Card, Empty, Section } from './kit';
+import { NextUp } from './NextUp';
 
 export function Today({ onOpenProvider }: { onOpenProvider: (id: string) => void }) {
   const { store, today, refresh } = usePA();
@@ -39,6 +40,8 @@ export function Today({ onOpenProvider }: { onOpenProvider: (id: string) => void
             : `${b.decisions.length} ${b.decisions.length === 1 ? 'Sache wartet' : 'Sachen warten'} auf dich, ${b.paHandles.length} erledigt PA.`}
         </p>
       </header>
+
+      <NextUp />
 
       <Section title="Wartet auf dich">
         {active.length === 0 && <Empty>Keine Entscheidungen heute.</Empty>}

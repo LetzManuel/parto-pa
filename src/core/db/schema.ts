@@ -42,6 +42,9 @@ export const MIGRATIONS: string[] = [
   ALTER TABLE cal_event ADD COLUMN dirty INTEGER NOT NULL DEFAULT 1;
   ALTER TABLE memo ADD COLUMN dirty INTEGER NOT NULL DEFAULT 1;
   `,
+  /* v3: where an appointment takes place (leave-by reminders) */ `
+  ALTER TABLE cal_event ADD COLUMN location TEXT;
+  `,
 ];
 
 export const TABLES = {

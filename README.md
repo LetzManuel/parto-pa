@@ -28,7 +28,9 @@ src/core/        logic without UI, unit-tested
   deadlines/     Pickerl, passport, warranty, notice periods (Austrian defaults)
   memory/        "Was PA über mich weiß", health entries flagged and never shared with AI
   providers/     call cheat sheet, mailto/tel/booking links (PA never sends or calls itself)
-  calendar/      free windows (times only, never other appointments' content)
+  calendar/      ICS feeds, free windows, upcomingTimed (next appointments with place, shared by all features)
+  travel/        travel preferences (Auto/Öffis/zu Fuß/Rad), voice sentences for them, estimates, navigation links
+  reminders/     appointment reminders and leave-by times (route + buffer), what is due now
   db/            local SQLite schema (sql.js) and Store
 src/ui/          React screens: Heute, Kalender, + (Memo), Aufträge/Fristen, Ich
 supabase/        cloud schema draft: personal space (group kind 'personal'), is_group_member, has_app, RLS
@@ -54,3 +56,18 @@ Set `VITE_SUPABASE_URL` and `VITE_SUPABASE_PUBLISHABLE_KEY` (in `.env.local`, no
 Sync (`src/core/sync/engine.ts`): rows changed on the device are pushed, rows the cloud stamped since the last pull
 (`synced_at`) are pulled; the newer `updated_at` wins on both sides (`pa_keep_newer` trigger, migration 0002).
 On first sign-in the device's rows move into the person's personal space (`ensure_personal_space`).
+
+## Appointment reminders and leave-by times
+
+PA reminds of every timed appointment (own and subscribed calendars). With a place it works out when to leave:
+route time for the person's mode (usual, per day or per appointment) plus buffer, a heads-up before and "Jetzt los"
+with one action (navigation). Without a place, a reminder a few minutes ahead; with a meeting link, "Beitreten".
+The trip starts at the appointment right before, else where the phone is (if allowed), else the home address.
+
+Routes: cloud function `travel-time` asks the Google Routes API (live traffic, Wiener Linien/ÖBB). It needs the function
+secret `GOOGLE_MAPS_API_KEY` (Google Cloud project with "Routes API" enabled, key restricted to that API). Without the key,
+without sign-in or offline, PA geocodes with OpenStreetMap and estimates from the distance (shown as "geschätzt").
+Settings live on the device (Ich › Wege & Erinnerungen) and can be said in a memo: „Heute bin ich mit dem Auto unterwegs“.
+
+Web version: notifications show while PA is open or in the background. Lock-screen reminders with PA closed need the
+phone shell's local notifications (or web push) and plug into `src/platform/notify.ts`.

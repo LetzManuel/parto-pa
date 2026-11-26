@@ -8,6 +8,7 @@ import { Empty, Field, Section } from './kit';
 import { syncProviderOrder } from './providers';
 import { loadDemo } from './demo';
 import { Account } from './Account';
+import { TravelSettings } from './TravelSettings';
 
 export function Me({ onOpenProvider }: { onOpenProvider: (id: string) => void }) {
   const { store, refresh } = usePA();
@@ -24,6 +25,7 @@ export function Me({ onOpenProvider }: { onOpenProvider: (id: string) => void })
           </Field>
         </div>
       </Section>
+      <TravelSettings />
       <Providers onOpen={onOpenProvider} />
       <Memory />
       <Section title="Daten">

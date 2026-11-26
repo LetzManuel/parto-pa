@@ -106,3 +106,13 @@ p.hint { color: var(--muted); font-size: 0.82rem; line-height: 1.4; margin: 4px 
 :root[data-theme="dark"] .brand-logo.on-light { display: none; }
 :root[data-theme="dark"] .brand-logo.on-dark { display: block; }
 .field input:focus, .field select:focus, .add input:focus, textarea.memo:focus { outline: 2px solid var(--pa); outline-offset: 1px; }
+
+/* "Als Nächstes": the one thing to know on the go, readable at arm's length. */
+.card.next { margin-top: 14px; }
+.next-when { font-size: 1.6rem; font-weight: 900; letter-spacing: -0.01em; }
+.next-what { font-weight: 800; margin: 2px 0 4px; }
+.next-after { margin-top: 10px; }
+.chips.tight { margin: 10px 0 0; }
+.card.next .actions .button { flex: 1; text-align: center; padding: 11px 16px; }
+.travel-cmd { margin-top: 10px; }
+[hidden] { display: none !important; }

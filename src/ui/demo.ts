@@ -31,6 +31,6 @@ export function loadDemo(store: Store, ref = todayISO()): void {
   store.save('deadline', createDeadline({ kind: 'passport', dueDate: addMonths(ref, 5) }));
   store.save('deadline', createDeadline({ kind: 'contract', title: 'Fitnessstudio kündbar bis', dueDate: addDays(ref, 45) }));
   store.save('event', stamp({ title: 'Team-Meeting', date: ref, start: '09:30', end: '10:30', tentative: false, orderId: null }));
-  store.save('event', stamp({ title: 'Laufen mit Ben', date: ref, start: '18:00', end: '19:00', tentative: false, orderId: null }));
-  store.save('event', stamp({ title: 'Elternabend', date: addDays(ref, 1), start: '18:30', end: '20:00', tentative: false, orderId: null }));
+  store.save('event', stamp({ title: 'Laufen mit Ben', date: ref, start: '18:00', end: '19:00', tentative: false, orderId: null, location: 'Prater Hauptallee, 1020 Wien' }));
+  store.save('event', stamp({ title: 'Elternabend', date: addDays(ref, 1), start: '18:30', end: '20:00', tentative: false, orderId: null, location: 'Volksschule Zirkusgasse 48, 1020 Wien' }));
 }
