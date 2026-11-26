@@ -8,9 +8,13 @@
     "build": "tsc -b && vite build",
     "lint": "eslint src --quiet",
     "test": "vitest run",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "build:preview": "VITE_PREVIEW_DEMO=1 vite build --outDir dist-preview --emptyOutDir && python3 scripts/single-file.py dist-preview dist-preview/parto-pa-preview.html"
   },
   "dependencies": {
+    "@fontsource-variable/nunito": "^5.3.0",
+    "@supabase/supabase-js": "^2.117.1",
+    "ical.js": "^2.2.1",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "sql.js": "^1.12.0"

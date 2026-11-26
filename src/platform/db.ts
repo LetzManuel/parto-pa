@@ -21,7 +21,11 @@ function load(): Uint8Array | undefined {
 }
 
 export async function openStore(): Promise<Store> {
-  const SQL = await initSqlJs({ locateFile: () => wasmUrl });
+  // Single-file preview builds carry the wasm inline (window.__PA_WASM__, base64), since they cannot fetch files.
+  const inline = (globalThis as { __PA_WASM__?: string }).__PA_WASM__;
+  const SQL = inline
+    ? await initSqlJs({ wasmBinary: Uint8Array.from(atob(inline), (c) => c.charCodeAt(0)).buffer } as Parameters<typeof initSqlJs>[0])
+    : await initSqlJs({ locateFile: () => wasmUrl });
   const db = new SQL.Database(load());
   let space = '';
   try { space = localStorage.getItem(SPACE_KEY) ?? ''; } catch { /* private mode */ }
