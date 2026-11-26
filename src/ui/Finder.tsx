@@ -4,6 +4,7 @@ import { checkInOrder, listFor, proposal, spokenSummary, type Outcome } from '..
 import { handoffActions, requestText } from '../core/favourites/handoff';
 import { KIND_LABEL, KIND_NOUN, type BookingRequest, type FavKind, type Slot } from '../core/favourites/model';
 import { parseRequest } from '../core/favourites/request';
+import { kindWords } from '../core/anbieter/lists';
 import { stamp } from '../core/model';
 import { createOrder, markRequested } from '../core/orders/flow';
 import { addDays, formatShort } from '../core/time/dates';
@@ -46,7 +47,7 @@ export function Finder({ start, onClose }: { start: FinderStart; onClose: () => 
   };
 
   const understand = (t: string, kind?: FavKind) => {
-    const r = parseRequest(t, today, kind ?? start.kind);
+    const r = parseRequest(t, today, kind ?? start.kind, kindWords(favs));
     if (!r) { setReq(null); setEdit(true); return; }
     if (start.topic && !r.topic) r.topic = start.topic;
     void run(r);
@@ -99,7 +100,7 @@ export function Finder({ start, onClose }: { start: FinderStart; onClose: () => 
     <div className="sheet-backdrop" onClick={onClose}>
       <div className="sheet finder" onClick={(e) => e.stopPropagation()}>
         <div className="sheet-head">
-          <h2>Bei Favoriten prüfen</h2>
+          <h2>Bei meinen Anbietern prüfen</h2>
           <button className="link" onClick={onClose}>Schließen</button>
         </div>
 

@@ -1,10 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { isMessageIntent, parseCommand, parseRequest } from '../core/messages';
+import { parseCommand } from '../core/messages';
 import { formatShort } from '../core/time/dates';
 import { canListen, listen, speak, stopSpeaking } from '../platform/speech';
 import { MessageComposer, useRecipients, type ComposerStart } from './Message';
 import { MicButton } from './Mic';
-import { isShoppingIntent, parseShopping } from '../core/shopping/parse';
+import type { ShopIntent } from '../core/shopping/parse';
 import { readBack } from '../core/shopping/lists';
 import { platform } from '../core/shopping/platforms';
 import { basketFor, openPlatform, ShoppingCapture } from './Shopping';
@@ -14,11 +14,17 @@ import { createMemory, sourceFromMemo, CATEGORY_LABEL, guessCategory } from '../
 import { suggest, TEMPLATES, type Suggestion, type TemplateId } from '../core/templates/templates';
 import type { Unit } from '../core/time/dates';
 import { usePA } from './context';
-import { parseRequest as parseBooking } from '../core/favourites/request';
 import { KIND_LABEL } from '../core/favourites/model';
 import { Card, Chip, Field } from './kit';
 import { upcomingTimed } from '../core/calendar/upcoming';
-import { applyCommand, parseTravelCommand } from '../core/travel/voice';
+import { applyCommand, type TravelCommand } from '../core/travel/voice';
+import { route } from '../core/intent/route';
+import { speechPhrases } from '../core/anbieter/lists';
+import { applyAnbieterCommand, type AnbieterCommand } from '../core/anbieter/voice';
+import { describeCommand, type RhythmCommand } from '../core/rhythms/say';
+import { applyCommand as applyRhythm } from '../core/rhythms/touch';
+import { intervalText } from '../core/rhythms/engine';
+import { RhythmConfirm } from './Rhythms';
 import { getPrefs, setPrefs } from '../core/travel/prefs';
 import { tick } from '../platform/reminders';
 
@@ -45,6 +51,7 @@ export function Capture({ onDone, onOpenBasket, onFind }: { onDone: () => void; 
     stopRef.current();
     setListening(true);
     stopRef.current = listen({
+      phrases: speechPhrases(store.list('favourite')),
       onInterim: (t) => setVoiceNote(`„${t}“`),
       onFinal,
       onEnd: () => setListening(false),
@@ -52,17 +59,36 @@ export function Capture({ onDone, onOpenBasket, onFind }: { onDone: () => void; 
     });
   };
 
-  // First utterance: message or memo.
+  function applyTravelCmd(cmd: TravelCommand) {
+    setPrefs(store, applyCommand(getPrefs(store), cmd), today);
+    tick(store).then(refresh).catch(() => { /* next round */ });
+  }
+  const rhythmText = (c: RhythmCommand) => describeCommand(c, intervalText, (d) => formatShort(d, today));
+
+  const ctx = () => ({ today, favourites: store.list('favourite'), recipients, upcoming: upcomingTimed(store, Date.now(), 48) });
+  const yes = (t: string) => parseCommand(t)?.type === 'send' || /^(ja|passt|ok|okay|genau|gerne|speicher|übernehm|mach)/i.test(t.trim());
+  /** Read the confirm sentence, one spoken "ja" applies it. */
+  const confirmByVoice = (sentence: string, apply: () => string) => speak(sentence).then(() => hear((t) => {
+    if (!yes(t)) { setVoiceNote('Nichts geändert. Unten antippen oder nochmal sagen.'); return; }
+    const done = apply();
+    refresh(); setText(''); setVoiceNote(done); void speak(done);
+  }));
+
+  // First utterance: the router picks the feature (see core/intent/route.ts).
   const start = () => hear((said) => {
     setVoiceNote(null);
-    if (isMessageIntent(said)) {
-      const r = parseRequest(said, recipients, today);
-      setMessage({ recipient: r.recipient, template: r.template, channel: r.channel, body: r.body, when: r.when, voice: true });
+    const r = route(said, ctx());
+    if (r.to === 'message') {
+      setMessage({ recipient: r.req.recipient, template: r.req.template, channel: r.req.channel, body: r.req.body, when: r.req.when, voice: true });
       return;
     }
+    if (r.to === 'booking') { onFind(said); return; }
     setText(said); setEdit({}); setPicked(null);
-    if (isShoppingIntent(said)) { voiceBasket(said); return; }
-    const [best] = suggest(said, today);
+    if (r.to === 'shopping') { voiceBasket(r.intent); return; }
+    if (r.to === 'anbieter') { confirmByVoice(r.cmd.confirm, () => applyAnbieterCommand(store, r.cmd)); return; }
+    if (r.to === 'travel') { confirmByVoice(r.cmd.confirm, () => { applyTravelCmd(r.cmd); return 'Übernommen.'; }); return; }
+    if (r.to === 'rhythm') { confirmByVoice(`${rhythmText(r.cmd)}?`, () => applyRhythm(store, r.cmd, today)); return; }
+    const best = r.best;
     if (best && best.confidence >= 0.85) {
       const label = TEMPLATES.find((t) => t.id === best.template)!.label;
       speak(`${label}: ${best.title}${best.dueDate ? `, ${formatShort(best.dueDate, today)}` : ''}. Speichern?`).then(() =>
@@ -77,9 +103,7 @@ export function Capture({ onDone, onOpenBasket, onFind }: { onDone: () => void; 
   });
 
   // Shopping / food: read the basket back, one spoken "ja" saves it and opens the platform.
-  const voiceBasket = (said: string) => {
-    const intent = parseShopping(said);
-    if (!intent) return;
+  const voiceBasket = (intent: ShopIntent) => {
     const { list, saved } = basketFor(store, intent, today);
     if (!list) { speak(`Keine Liste ${intent.reuse} gefunden.`); return; }
     const p = platform(list.platformId);
@@ -106,16 +130,21 @@ export function Capture({ onDone, onOpenBasket, onFind }: { onDone: () => void; 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const shopIntent = useMemo(() => (isShoppingIntent(text) ? parseShopping(text) : null), [text]);
+  // Typed text goes through the same router as speech.
+  const routed = useMemo(() => route(text, ctx()), [text, today, store, recipients]); // eslint-disable-line react-hooks/exhaustive-deps
+  const shopIntent = routed.to === 'shopping' ? routed.intent : null;
+  const booking = routed.to === 'booking' ? routed.req : null;
+  const anbieter: AnbieterCommand | null = routed.to === 'anbieter' ? routed.cmd : null;
+  const rhythm: RhythmCommand | null = routed.to === 'rhythm' ? routed.cmd : null;
   const suggestions = useMemo(() => suggest(text, today), [text, today]);
-  const booking = useMemo(() => parseBooking(text, today), [text, today]);
   // "Heute bin ich mit dem Auto unterwegs": a travel setting, not an order. One tap applies it.
-  const travel = useMemo(() => parseTravelCommand(text, today, upcomingTimed(store, Date.now(), 48)), [text, today, store]);
+  const travel = routed.to === 'travel' ? routed.cmd : null;
+  /** A command that is not a memo: travel, Meine Anbieter or a rhythm. Hides the memo form. */
+  const special = !!(travel || anbieter || rhythm);
   const applyTravel = () => {
     if (!travel) return;
-    setPrefs(store, applyCommand(getPrefs(store), travel), today);
+    applyTravelCmd(travel);
     refresh(); setText('');
-    tick(store).then(refresh).catch(() => { /* next round */ });
   };
   const base = suggestions.find((s) => s.template === picked) ?? (picked ? { template: picked, title: text, dueDate: null, confidence: 0 } : suggestions[0]);
   const s: Suggestion | undefined = base ? { ...base, ...edit } as Suggestion : undefined;
@@ -161,7 +190,7 @@ export function Capture({ onDone, onOpenBasket, onFind }: { onDone: () => void; 
           <MicButton active={listening} onClick={() => (listening ? stopRef.current() : start())} />
           <div className="voice-hint">
             {voiceNote ?? (listening ? 'Ich höre …' : 'Tippen und sprechen')}
-            <div className="meta">„Schreib Studio Nails, dass ich morgen 10 Minuten später komme“ · „Erinner mich morgen an die Steuer“ · „Bestell bei gurkerl Milch und Eier“</div>
+            <div className="meta">„Friseur morgen 14 bis 17 Uhr“ · „Schreib Studio Nails, dass ich 10 Minuten später komme“ · „Bestell bei gurkerl Milch und Eier“ · „Friseur alle 5 Wochen“ · „gurkerl zuerst“ · „Erinner mich morgen an die Steuer“</div>
           </div>
         </div>
       )}
@@ -187,19 +216,29 @@ export function Capture({ onDone, onOpenBasket, onFind }: { onDone: () => void; 
           </Card>
         </div>
       )}
+      {anbieter && (
+        <div className="travel-cmd">
+          <Card tone="accent">
+            <div className="hint-title">Meine Anbieter</div>
+            <div className="hint-text">{anbieter.confirm}</div>
+            <div className="actions"><button className="primary" onClick={() => { setVoiceNote(applyAnbieterCommand(store, anbieter)); refresh(); setText(''); }}>Ja</button></div>
+          </Card>
+        </div>
+      )}
+      {rhythm && <div className="travel-cmd"><RhythmConfirm command={rhythm} onSaved={(m) => { setVoiceNote(m); setText(''); }} /></div>}
 
-      <div className="chips" hidden={!!travel}>
+      <div className="chips" hidden={special}>
         {TEMPLATES.map((t) => <Chip key={t.id} active={tpl === t.id} onClick={() => choose(t.id)}>{t.label}</Chip>)}
       </div>
       {booking && (
-        <div className="actions"><button className="primary" onClick={() => { onFind(text); setText(''); }}>Bei Favoriten prüfen ({booking.topic ?? KIND_LABEL[booking.kind]})</button></div>
+        <div className="actions"><button className="primary" onClick={() => { onFind(text); setText(''); }}>Bei meinen Anbietern prüfen ({booking.topic ?? KIND_LABEL[booking.kind]})</button></div>
       )}
-      {!tpl && !travel && text.trim() && <p className="hint-line">Keine Form erkannt. Wähle eine aus oder speichere es als Notiz.</p>}
+      {!tpl && !special && !booking && text.trim() && <p className="hint-line">Keine Form erkannt. Wähle eine aus oder speichere es als Notiz.</p>}
       {!text.trim() && (
         <ul className="patterns">{TEMPLATES.map((t) => <li key={t.id}>{t.pattern}</li>)}</ul>
       )}
 
-      {s && tpl && !travel && (
+      {s && tpl && !special && (
         <div className="form">
           <Field label={tpl === 'birthday' ? 'Wer' : 'Was'}>
             <input value={tpl === 'birthday' ? s.person ?? '' : s.title}
@@ -234,7 +273,7 @@ export function Capture({ onDone, onOpenBasket, onFind }: { onDone: () => void; 
         </div>
       )}
 
-      <div className="actions sticky" hidden={!!travel}>
+      <div className="actions sticky" hidden={special}>
         <button disabled={!text.trim()} onClick={save} hidden={!!tpl}>Als Notiz speichern</button>
         <button className="primary" disabled={!text.trim() || !tpl || (tpl !== 'location' && tpl !== 'recurring' && !s?.dueDate)} onClick={save}>Speichern</button>
       </div>
