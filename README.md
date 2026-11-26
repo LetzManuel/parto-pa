@@ -28,6 +28,8 @@ src/core/        logic without UI, unit-tested
   deadlines/     Pickerl, passport, warranty, notice periods (Austrian defaults)
   memory/        "Was PA über mich weiß", health entries flagged and never shared with AI
   providers/     call cheat sheet, mailto/tel/booking links (PA never sends or calls itself)
+  messages/      dictated messages: standard templates (Sie/du), clean-up of spoken text, voice commands,
+                 mailto / sms: / wa.me links. Public API in messages/index.ts, reused by other features
   calendar/      free windows (times only, never other appointments' content)
   db/            local SQLite schema (sql.js) and Store
 src/ui/          React screens: Heute, Kalender, + (Memo), Aufträge/Fristen, Ich
@@ -56,7 +58,19 @@ the function `slot-relay` (signed in only, fixed hosts). Cloud table: `supabase/
 ## Not in this slice yet
 
 Cloud sync and sign-in (Parto ID), phone app shell (Tauri, as in Parto Projects), calendar import (ICS/Google/Outlook),
-on-device dictation, geofence for place reminders, push notifications, confirmation by calendar match and share sheet (Phase 2).
+geofence for place reminders, push notifications, confirmation by calendar match and share sheet (Phase 2).
+
+## Voice and messages
+
+The middle tab is the microphone: opening it starts listening (Web Speech API, de-AT, `src/platform/speech.ts`).
+"Schreib Studio Nails per WhatsApp, dass ich morgen später komme" becomes a message: PA picks recipient, template and
+channel by keywords, reads the draft aloud and listens for "senden", "vorlesen", "ergänze …", "per SMS",
+"Vorlage Absage", "per du" or "abbrechen". Anything else becomes a memo as before ("Speichern?" → "ja").
+Sending hands the finished text to the mail app (mailto), SMS app (sms:) or WhatsApp (wa.me); the user taps Senden
+there. No AI: templates only frame the dictated text. Other features listen for sent messages with `onMessageSent`.
+
+Browser support: Chrome/Edge and Safari (iOS needs Siri & Dictation on). Chrome's recogniser runs on Google servers,
+Safari's on Apple's; PA stores no audio. Without speech support the keyboard's own dictation key works in every field.
 
 ## Cloud and sync
 

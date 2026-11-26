@@ -106,14 +106,39 @@ p.hint { color: var(--muted); font-size: 0.82rem; line-height: 1.4; margin: 4px 
 :root[data-theme="dark"] .brand-logo.on-light { display: none; }
 :root[data-theme="dark"] .brand-logo.on-dark { display: block; }
 .field input:focus, .field select:focus, .add input:focus, textarea.memo:focus, .ask-text:focus { outline: 2px solid var(--pa); outline-offset: 1px; }
+
+/* Voice and messages: one big teal microphone, a preview that looks like the message that goes out. */
+.mic { width: 72px; height: 72px; min-width: 72px; border-radius: 50%; border: 0; background: var(--pa); color: var(--pa-ink); display: inline-flex; align-items: center; justify-content: center; padding: 0; box-shadow: 0 6px 18px rgb(18 160 138 / 0.35); }
+.mic.on { background: var(--brand); color: var(--brand-ink); animation: mic-pulse 1.4s ease-in-out infinite; }
+.mic.busy { animation: mic-pulse 2s ease-in-out infinite; }
+@keyframes mic-pulse { 0%, 100% { box-shadow: 0 0 0 0 rgb(18 160 138 / 0.45); } 50% { box-shadow: 0 0 0 14px rgb(18 160 138 / 0); } }
+@media (prefers-reduced-motion: reduce) { .mic.on, .mic.busy { animation: none; outline: 3px solid var(--pa); outline-offset: 3px; } }
+.voice-hero, .voice-bar { display: flex; gap: 14px; align-items: center; background: var(--accent); border: 1px solid var(--accent-line); border-radius: var(--radius); padding: 14px; margin: 4px 0 10px; }
+.voice-hint { flex: 1; min-width: 0; font-weight: 700; line-height: 1.35; }
+.voice-hint .meta { font-weight: 400; margin-top: 4px; }
+.voice-bar .mic { width: 56px; height: 56px; min-width: 56px; }
+.composer .to { display: flex; gap: 10px; align-items: flex-start; margin-bottom: 6px; }
+.composer .to > .meta { padding-top: 8px; }
+.grow { flex: 1; min-width: 0; }
+.chips.scroll { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; margin: 6px -16px; padding: 0 16px; }
+.chips.scroll::-webkit-scrollbar { display: none; }
+.chips.scroll .chip { flex: none; }
+.row.compact { gap: 8px; flex-wrap: wrap; margin: 6px 0 10px; }
+.seg { display: inline-flex; border: 1px solid var(--line); border-radius: 999px; background: var(--surface); padding: 2px; }
+.seg button { border: 0; background: none; min-height: 34px; padding: 6px 12px; font-size: 0.9rem; }
+.seg button.on { background: var(--pa); color: var(--pa-ink); }
+.preview { background: var(--surface); border: 1px solid var(--line); border-left: 4px solid var(--pa); border-radius: 12px; padding: 12px 14px; margin: 6px 0 4px; }
+.preview.whatsapp, .preview.sms { border-left-width: 1px; border-radius: 16px 16px 4px 16px; background: var(--accent); border-color: var(--accent-line); margin-left: 12%; }
+.preview .subject { font-weight: 800; padding-bottom: 8px; margin-bottom: 8px; border-bottom: 1px solid var(--line); }
+.preview .text { white-space: pre-wrap; line-height: 1.45; }
+button.big { min-height: 48px; padding: 10px 22px; font-size: 1.05rem; }
+.ok.big { font-weight: 700; font-size: 1.05rem; line-height: 1.4; }
+@media (max-width: 380px) { .row.compact { flex-direction: row; } }
+.button { color: var(--ink); }
 /* Favourites & finder: one big mic, one result card, one main button (phone in one hand, on the go). */
 .find { display: flex; gap: 14px; align-items: center; width: 100%; text-align: left; margin: 14px 0 4px; padding: 14px 16px; border-radius: var(--radius); background: var(--surface); border-color: var(--accent-line); }
 .find > svg { flex: none; width: 46px; height: 46px; padding: 11px; border-radius: 50%; background: var(--pa); color: var(--pa-ink); }
 .ask { display: flex; gap: 12px; align-items: center; }
-.mic { flex: none; width: 64px; height: 64px; border-radius: 50%; padding: 0; display: flex; align-items: center; justify-content: center; background: var(--pa); color: var(--pa-ink); border-color: var(--pa); box-shadow: 0 4px 14px rgb(0 0 0 / 0.15); }
-.mic.on { animation: pulse 1.2s ease-in-out infinite; }
-@keyframes pulse { 0%, 100% { box-shadow: 0 0 0 0 rgb(18 160 138 / 0.45); } 50% { box-shadow: 0 0 0 12px rgb(18 160 138 / 0); } }
-@media (prefers-reduced-motion: reduce) { .mic.on { animation: none; outline: 3px solid var(--pa); outline-offset: 3px; } }
 .ask-text { flex: 1; min-width: 0; border: 1px solid var(--line); border-radius: 12px; padding: 12px; background: var(--surface); font-size: 1.05rem; min-height: 48px; }
 .understood { display: flex; justify-content: space-between; gap: 10px; align-items: baseline; margin: 12px 2px 4px; }
 .checked { list-style: none; margin: 10px 0; padding: 0; }

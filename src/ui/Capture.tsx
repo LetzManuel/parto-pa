@@ -1,26 +1,82 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { isMessageIntent, parseCommand, parseRequest } from '../core/messages';
+import { formatShort } from '../core/time/dates';
+import { canListen, listen, speak, stopSpeaking } from '../platform/speech';
+import { MessageComposer, useRecipients, type ComposerStart } from './Message';
+import { MicButton } from './Mic';
 import { stamp, type Order } from '../core/model';
 import { createOrder } from '../core/orders/flow';
 import { createMemory, sourceFromMemo, CATEGORY_LABEL, guessCategory } from '../core/memory/memory';
 import { suggest, TEMPLATES, type Suggestion, type TemplateId } from '../core/templates/templates';
 import type { Unit } from '../core/time/dates';
 import { usePA } from './context';
-import { parseRequest } from '../core/favourites/request';
+import { parseRequest as parseBooking } from '../core/favourites/request';
 import { KIND_LABEL } from '../core/favourites/model';
 import { Chip, Field } from './kit';
 
 const UNITS: Array<[Unit, string]> = [['week', 'Wochen'], ['month', 'Monate'], ['year', 'Jahre']];
 
-/** "+" — a memo becomes an order through a fixed template. Nothing is saved before "Speichern". */
+/**
+ * The microphone tab: say anything. "Schreib Anna, dass …" becomes a message, everything else a memo that a
+ * fixed template turns into an order; "Friseur morgen 14 bis 17 Uhr" opens the favourites check. Nothing is saved or sent before a spoken or tapped confirmation.
+ */
 export function Capture({ onDone, onFind }: { onDone: () => void; onFind: (text: string) => void }) {
   const { store, today, refresh } = usePA();
+  const recipients = useRecipients();
   const [text, setText] = useState('');
   const [picked, setPicked] = useState<TemplateId | null>(null);
   const [edit, setEdit] = useState<Partial<Suggestion>>({});
   const [remember, setRemember] = useState(true);
+  const [message, setMessage] = useState<ComposerStart | null>(null);
+  const [listening, setListening] = useState(false);
+  const [voiceNote, setVoiceNote] = useState<string | null>(null);
+  const stopRef = useRef<() => void>(() => {});
+  const saveRef = useRef<() => void>(() => {});
+
+  const hear = (onFinal: (said: string) => void) => {
+    stopRef.current();
+    setListening(true);
+    stopRef.current = listen({
+      onInterim: (t) => setVoiceNote(`„${t}“`),
+      onFinal,
+      onEnd: () => setListening(false),
+      onError: (code) => setVoiceNote(code === 'not-allowed' ? 'Mikrofon ist nicht erlaubt. Bitte in den Einstellungen freigeben.' : 'Nicht verstanden. Nochmal tippen.'),
+    });
+  };
+
+  // First utterance: message or memo.
+  const start = () => hear((said) => {
+    setVoiceNote(null);
+    if (isMessageIntent(said)) {
+      const r = parseRequest(said, recipients, today);
+      setMessage({ recipient: r.recipient, template: r.template, channel: r.channel, body: r.body, when: r.when, voice: true });
+      return;
+    }
+    if (parseBooking(said, today)) { onFind(said); return; }
+    setText(said); setEdit({}); setPicked(null);
+    const [best] = suggest(said, today);
+    if (best && best.confidence >= 0.85) {
+      const label = TEMPLATES.find((t) => t.id === best.template)!.label;
+      speak(`${label}: ${best.title}${best.dueDate ? `, ${formatShort(best.dueDate, today)}` : ''}. Speichern?`).then(() =>
+        hear((yes) => {
+          const c = parseCommand(yes);
+          if (c?.type === 'send' || /speicher/i.test(yes)) saveRef.current();
+          else setVoiceNote('Nicht gespeichert. Ändere es unten oder tippe auf Speichern.');
+        }));
+    } else {
+      speak('Notiert. Bitte unten eine Form wählen oder als Notiz speichern.');
+    }
+  });
+
+  // Opening the tab starts listening at once: phone in hand, no searching.
+  useEffect(() => {
+    if (canListen()) start();
+    return () => { stopRef.current(); stopSpeaking(); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const suggestions = useMemo(() => suggest(text, today), [text, today]);
-  const booking = useMemo(() => parseRequest(text, today), [text, today]);
+  const booking = useMemo(() => parseBooking(text, today), [text, today]);
   const base = suggestions.find((s) => s.template === picked) ?? (picked ? { template: picked, title: text, dueDate: null, confidence: 0 } : suggestions[0]);
   const s: Suggestion | undefined = base ? { ...base, ...edit } as Suggestion : undefined;
   const tpl = s?.template;
@@ -46,16 +102,39 @@ export function Capture({ onDone, onFind }: { onDone: () => void; onFind: (text:
     setText(''); setPicked(null); setEdit({});
     onDone();
   };
+  saveRef.current = save;
+
+  if (message) {
+    return (
+      <div className="screen">
+        <h1>Nachricht</h1>
+        <MessageComposer initial={message} recipients={recipients} onClose={() => { setMessage(null); setText(''); }} />
+      </div>
+    );
+  }
 
   return (
     <div className="screen">
-      <h1>Neues Memo</h1>
+      <h1>Sag es PA</h1>
+      {canListen() && (
+        <div className="voice-hero">
+          <MicButton active={listening} onClick={() => (listening ? stopRef.current() : start())} />
+          <div className="voice-hint">
+            {voiceNote ?? (listening ? 'Ich höre …' : 'Tippen und sprechen')}
+            <div className="meta">„Schreib Studio Nails, dass ich morgen 10 Minuten später komme“ · „Erinner mich morgen an die Steuer“</div>
+          </div>
+        </div>
+      )}
+      <div className="chips">
+        <Chip active onClick={() => {}}>Memo</Chip>
+        <Chip onClick={() => setMessage({ body: text.trim() ? text : '' })}>Nachricht schreiben</Chip>
+      </div>
       <textarea
-        className="memo" autoFocus value={text} rows={3}
+        className="memo" value={text} rows={3}
         placeholder="z. B. „Wenn der Installateur bis Freitag nicht zurückruft, such einen anderen“"
         onChange={(e) => { setText(e.target.value); setEdit({}); setPicked(null); }}
       />
-      <p className="hint-line">Diktat und KI kommen später. Jetzt erkennt PA ein paar feste Formen direkt auf dem Gerät.</p>
+      <p className="hint-line">PA erkennt feste Formen direkt auf dem Gerät, ohne KI.</p>
 
       <div className="chips">
         {TEMPLATES.map((t) => <Chip key={t.id} active={tpl === t.id} onClick={() => choose(t.id)}>{t.label}</Chip>)}

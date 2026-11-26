@@ -10,7 +10,7 @@ import { addDays, formatShort } from '../core/time/dates';
 import { slotContext } from '../platform/slots';
 import { usePA } from './context';
 import { Card, Chip, Field } from './kit';
-import { canListen, listen, speak } from './voice';
+import { canListen, listen, speak, stopSpeaking } from './voice';
 
 export interface FinderStart { text?: string; kind?: FavKind; topic?: string | null }
 
@@ -33,6 +33,7 @@ export function Finder({ start, onClose }: { start: FinderStart; onClose: () => 
   const [talk, setTalk] = useState(store.getMeta('voice:speak') !== '0');
   const stop = useRef<() => void>(() => {});
   const favs = store.list('favourite');
+  const sender = store.getMeta('name') ?? '';
 
   const run = async (r: BookingRequest, all = false) => {
     setReq(r); setOutcomes([]); setBusy(true); setDone(null);
@@ -42,7 +43,7 @@ export function Finder({ start, onClose }: { start: FinderStart; onClose: () => 
       onProgress: (o) => setOutcomes((x) => [...(x ?? []), o]),
     });
     setOutcomes(out); setBusy(false);
-    if (talk) speak(spokenSummary(out, r, today));
+    if (talk) void speak(spokenSummary(out, r, today));
   };
 
   const understand = (t: string, kind?: FavKind) => {
@@ -63,7 +64,7 @@ export function Finder({ start, onClose }: { start: FinderStart; onClose: () => 
     if (start.text) understand(start.text);
     else if (start.kind) void run(parseRequest(KIND_NOUN[start.kind], today, start.kind)!);
     else if (canListen()) mic();
-    return () => stop.current();
+    return () => { stop.current(); stopSpeaking(); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -160,9 +161,9 @@ export function Finder({ start, onClose }: { start: FinderStart; onClose: () => 
             <div className="meta">{best.slot ? 'Vorschlag' : req.kind === 'babysitter' ? 'Zuerst fragen' : 'Hier kann PA nicht nachsehen'}</div>
             <div className="proposal">{best.fav.name}{best.slot && <> · {req.kind === 'tickets' && best.slot.label ? `${best.slot.label}, ` : ''}{formatShort(best.slot.date, today)} {best.slot.start !== '00:00' && best.slot.start}</>}</div>
             {best.more.length > 0 && <div className="meta">Auch: {best.more.slice(0, 4).map((s) => (s.date === best.slot?.date ? s.start : `${formatShort(s.date, today)} ${s.start}`)).join(', ')}</div>}
-            {!best.slot && <div className="say">„{requestText(best.fav, req, today)}“</div>}
+            {!best.slot && <div className="say">„{requestText(best.fav, req, today, sender)}“</div>}
             <div className="actions wrap">
-              {handoffActions(best.fav, req, today, best.slot).map((a, i) => (
+              {handoffActions(best.fav, req, today, best.slot, sender).map((a, i) => (
                 <a key={a.kind} className={`button ${i === 0 ? 'primary big' : ''}`} href={a.url} target={a.kind === 'book' || a.kind === 'web' || a.kind === 'whatsapp' ? '_blank' : undefined} rel="noreferrer">{a.label}</a>
               ))}
             </div>
