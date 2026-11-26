@@ -146,7 +146,9 @@ export function Capture({ onDone, onOpenBasket, onFind }: { onDone: () => void; 
   // "Heute bin ich mit dem Auto unterwegs": a travel setting, not an order. One tap applies it.
   const travel = routed.to === 'travel' ? routed.cmd : null;
   /** A command that is not a memo: travel, Meine Anbieter or a rhythm. Hides the memo form. */
-  const special = !!(travel || anbieter || rhythm);
+  const command = !!(travel || anbieter || rhythm);
+  // A booking request shows the check button only; picking a template chip turns it back into a memo.
+  const special = command || (!!booking && !picked);
   const applyTravel = () => {
     if (!travel) return;
     applyTravelCmd(travel);
@@ -233,7 +235,7 @@ export function Capture({ onDone, onOpenBasket, onFind }: { onDone: () => void; 
       )}
       {rhythm && <div className="travel-cmd"><RhythmConfirm command={rhythm} onSaved={(m) => { setVoiceNote(m); setText(''); }} /></div>}
 
-      <div className="chips" hidden={special}>
+      <div className="chips" hidden={command}>
         {TEMPLATES.map((t) => <Chip key={t.id} active={tpl === t.id} onClick={() => choose(t.id)}>{t.label}</Chip>)}
       </div>
       {booking && (

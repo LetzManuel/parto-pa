@@ -136,3 +136,25 @@ Settings live on the device (Ich › Wege & Erinnerungen) and can be said in a m
 
 Web version: notifications show while PA is open or in the background. Lock-screen reminders with PA closed need the
 phone shell's local notifications (or web push) and plug into `src/platform/notify.ts`.
+
+## Integration: one mic, Meine Anbieter, hand-offs, gurkerl cart
+
+- **One mic** (`src/core/intent/route.ts`): every spoken or typed sentence goes to exactly one feature, in this order:
+  Meine Anbieter commands → Wege → Nachricht → Einkauf & Essen → Rhythmus → Bei Anbietern prüfen → Memo. Each route ends
+  in one confirm (spoken „ja“ or one tap). Reminders („Erinner mich …“, „Wenn … dann …“) always stay memos.
+- **Meine Anbieter** (`src/core/anbieter/`, `src/ui/Anbieter.tsx`): lists Lebensmittel, Essen bestellen, Friseur,
+  Kosmetik & Nägel, Ärzte (per field), Restaurant, Tickets, Babysitter, each in the person's own order (drag handle,
+  arrows, or voice: „gurkerl zuerst“, „Haarwerk auf Platz 2“, „Neuer Friseur Salon Lisa 01 234 56 78“, „Barber Joe löschen“).
+  Stored in the `favourite` table: shop entries have `system = 'shop'` and the platform id in `system_ref`; own keywords
+  per list are rows with `system = 'keyword'` („Stichwort Spitzen für Friseur“). No new table or column. Keywords and
+  names steer the router and are passed to the recogniser as hints where Chrome supports it.
+- **Hand-offs** (`src/ui/wiring.ts`, `src/ui/flows.tsx`): rhythm „Friseurtermin buchen?“ → check on Meine Anbieter;
+  rhythm „Ben schreiben?“ → message composer; sent messages count for rhythms; babysitter/doctor requests → message
+  templates with read-back; booked slots → `core/calendar/appointments.ts` (event + rhythm paused until then);
+  regular orders of the same basket → proposal for a recurring basket (`core/shopping/rhythm.ts`).
+- **gurkerl cart** (`core/shopping/gurkerl.ts`, `platform/gurkerl.ts`): optional, off by default. One sign-in with the
+  person's gurkerl account (OAuth/PKCE against gurkerl's official MCP server); then „gurkerl öffnen“ also puts the items
+  into the gurkerl cart. PA never checks out. Tokens stay on the device. Browser fallback: function `mcp-relay`.
+
+Local migrations after the merge: v3 shopping, v4 favourites, v5 event location, v6 rhythms. Cloud: 0004 favourite,
+0005 event location (both applied), 0006 shopping and 0007 rhythms (to run).

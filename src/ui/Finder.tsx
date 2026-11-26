@@ -84,7 +84,7 @@ export function Finder({ start, onClose }: { start: FinderStart; onClose: () => 
       addAppointment(store, { title, date: slot.date, start: slot.start, end, subject: req.kind === 'salon' ? 'friseur' : null });
       setDone(`Im Kalender: ${formatShort(slot.date, today)} ${slot.start}.`);
     } else {
-      const o = createOrder({ title: `${KIND_NOUN[req.kind]} bei ${best.fav.name}`, kind: 'followup', source: 'aus Favoriten prüfen', note: requestText(best.fav, req, today) });
+      const o = createOrder({ title: `${KIND_NOUN[req.kind]} bei ${best.fav.name}`, kind: 'followup', source: 'aus Meine Anbieter', note: requestText(best.fav, req, today) });
       store.save('order', markRequested(o, today, best.fav.name));
       setDone('Angefragt. PA fasst nach, wenn bis übermorgen (Werktage) nichts kommt.');
     }
@@ -110,7 +110,7 @@ export function Finder({ start, onClose }: { start: FinderStart; onClose: () => 
   const planCall = () => {
     if (!best || !req) return;
     store.save('order', createOrder({ title: `Anrufen: ${best.fav.name}${best.fav.phone ? ` (${best.fav.phone})` : ''}`, kind: 'reminder', dueDate: today,
-      source: 'aus Favoriten prüfen', note: requestText(best.fav, req, today) }));
+      source: 'aus Meine Anbieter', note: requestText(best.fav, req, today) }));
     refresh();
     setDone('Anruf für heute eingeplant, mit Spickzettel.');
   };
@@ -160,7 +160,7 @@ export function Finder({ start, onClose }: { start: FinderStart; onClose: () => 
         )}
 
         {outcomes && req && listFor(favs, req).length === 0 && (
-          <Card tone="warn">Für {req.topic ?? KIND_LABEL[req.kind]} hast du noch keine Favoriten. Lege sie unter <b>Ich › Meine Anbieter</b> an.</Card>
+          <Card tone="warn">Für {req.topic ?? KIND_LABEL[req.kind]} hast du noch niemanden eingetragen. Lege sie unter <b>Ich › Meine Anbieter</b> an.</Card>
         )}
 
         {outcomes && outcomes.length > 0 && (
@@ -196,9 +196,9 @@ export function Finder({ start, onClose }: { start: FinderStart; onClose: () => 
             </div>
           </Card>
         )}
-        {outcomes && !busy && outcomes.length > 0 && !best && <Card tone="warn">Bei deinen Favoriten ist im gewünschten Zeitraum nichts frei.</Card>}
+        {outcomes && !busy && outcomes.length > 0 && !best && <Card tone="warn">Bei deinen Anbietern ist im gewünschten Zeitraum nichts frei.</Card>}
         {outcomes && !busy && req && outcomes.length < listFor(favs, req).length && (
-          <button className="link" onClick={() => void run(req, true)}>Auch die anderen Favoriten prüfen</button>
+          <button className="link" onClick={() => void run(req, true)}>Auch die anderen prüfen</button>
         )}
         {req && !busy && outcomes && !best && (
           <button className="link" onClick={() => void run({ ...req, dateFrom: addDays(req.dateTo, 1), dateTo: addDays(req.dateTo, 1 + (req.dateTo > req.dateFrom ? 6 : 0)) }, true)}>Am nächsten Tag weiter suchen</button>

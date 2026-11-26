@@ -9,6 +9,7 @@ import { entries } from '../core/anbieter/lists';
 import { DEFAULT_ENABLED, defaultPlatform, platform, PLATFORMS } from '../core/shopping/platforms';
 import { addDays, formatShort, type Unit } from '../core/time/dates';
 import { acceptProposal, basketProposals } from '../core/shopping/rhythm';
+import { cartFillOn, connectGurkerl, disconnectGurkerl, fillGurkerlCart, gurkerlConnected, setCartFill, willFill } from '../platform/gurkerl';
 import { usePA } from './context';
 import { Card, Chip, Empty, Field, Section } from './kit';
 
@@ -27,6 +28,8 @@ export function enabledPlatforms(store: Store): string[] {
  */
 export function openPlatform(store: Store, l: ShopList, today: string): boolean {
   const h = handoff(l);
+  // gurkerl with the cart fill switched on: PA puts the items into the gurkerl cart while gurkerl opens.
+  if (willFill(store, l)) void fillGurkerlCart(store, l);
   navigator.clipboard?.writeText(h.text).catch(() => { /* no clipboard: list is visible on screen */ });
   store.save('shopList', markHanded(l, today));
   if (!h.url) return true;
@@ -304,6 +307,7 @@ export function ShoppingSettings({ onOpen }: { onOpen: (id: string) => void }) {
       <div className="chips">
         {PLATFORMS.map((p) => <Chip key={p.id} active={enabled.includes(p.id)} onClick={() => toggle(p.id)}>{p.name}</Chip>)}
       </div>
+      <GurkerlCart />
       <p className="hint">Wenn du keine Plattform nennst, nimmt PA die erste unter <b>Meine Anbieter</b> (sonst die erste eingeschaltete). BILLA kommt über foodora, SPAR, INTERSPAR und HOFER liefern nicht mehr zu.</p>
     </Section>
   );
@@ -352,5 +356,31 @@ export function RestaurantFeedback() {
         </div>
       </Card>
     </Section>
+  );
+}
+
+/** Optional: gurkerl's own MCP access fills the cart. Off until switched on; one gurkerl sign-in on this device. */
+function GurkerlCart() {
+  const { store, refresh } = usePA();
+  const [err, setErr] = useState<string | null>(null);
+  const on = cartFillOn(store), connected = gurkerlConnected(store);
+  const connect = () => { setErr(null); connectGurkerl(store).catch((e) => setErr(`Verbinden ging nicht (${String((e as Error).message ?? e)}). Später nochmal versuchen.`)); };
+  return (
+    <div className="gurkerl">
+      <label className="remember">
+        <input type="checkbox" checked={on} onChange={(e) => { setCartFill(store, e.target.checked); refresh(); if (e.target.checked && !connected) connect(); }} />
+        gurkerl-Warenkorb direkt befüllen
+      </label>
+      <p className="hint-line">
+        {on && connected ? 'Verbunden. Bei „gurkerl öffnen“ legt PA die Artikel in deinen gurkerl-Warenkorb. Bestellen und zahlen machst du in gurkerl.'
+          : on ? 'Einmal mit deinem gurkerl-Konto anmelden, dann kann PA den Warenkorb befüllen.'
+          : 'Aus: PA kopiert die Liste und öffnet gurkerl. An: PA legt die Artikel über den offiziellen gurkerl-Zugang in deinen Warenkorb (nie bestellen, nie zahlen).'}
+      </p>
+      <div className="actions">
+        {on && !connected && <button className="primary" onClick={connect}>Mit gurkerl anmelden</button>}
+        {connected && <button onClick={() => { disconnectGurkerl(store); refresh(); }}>gurkerl trennen</button>}
+      </div>
+      {err && <p className="hint-line">{err}</p>}
+    </div>
   );
 }

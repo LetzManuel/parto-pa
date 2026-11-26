@@ -189,3 +189,5 @@ button.mic.small { width: 44px; height: 44px; min-width: 44px; min-height: 44px;
 .keywords { margin-top: 14px; }
 .chip.kw { display: inline-flex; align-items: center; gap: 4px; padding-right: 6px; }
 .chip.kw .link { min-height: 0; padding: 0 4px; color: inherit; font-weight: 900; }
+.toast { position: fixed; left: 16px; right: 16px; bottom: calc(84px + env(safe-area-inset-bottom)); z-index: 40; background: var(--brand); color: var(--brand-ink); border-radius: 14px; padding: 12px 14px; font-weight: 700; box-shadow: 0 8px 24px rgb(0 0 0 / 0.25); max-width: 520px; margin: 0 auto; }
+.gurkerl { margin-top: 10px; }

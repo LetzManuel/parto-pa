@@ -55,6 +55,13 @@ export function loadDemo(store: Store, ref = todayISO()): void {
   fav({ kind: 'doctor', topic: 'Hausarzt', priority: 1, name: 'Dr. Huber', phone: '+43 1 444 55 66' });
   fav({ kind: 'babysitter', priority: 1, name: 'Lena Huber', phone: '0664 123 45 67' });
   fav({ kind: 'babysitter', priority: 2, name: 'Jakob Steiner', phone: '0676 765 43 21' });
+  fav({ kind: 'beauty', priority: 1, name: 'Studio Nails', phone: '+43 664 123 45 67' });
+  // Meine Anbieter: shop order and own keywords.
+  fav({ kind: 'grocery', priority: 1, name: 'gurkerl', system: 'shop', systemRef: 'gurkerl' });
+  fav({ kind: 'grocery', priority: 2, name: 'BILLA über foodora', system: 'shop', systemRef: 'foodora' });
+  fav({ kind: 'food', priority: 1, name: 'foodora', system: 'shop', systemRef: 'foodora' });
+  fav({ kind: 'food', priority: 2, name: 'Lieferando', system: 'shop', systemRef: 'lieferando' });
+  fav({ kind: 'salon', priority: 0, name: 'Spitzen', system: 'keyword' });
   store.save('event', stamp({ title: 'Laufen mit Ben', date: ref, start: '18:00', end: '19:00', tentative: false, orderId: null, location: 'Prater Hauptallee, 1020 Wien' }));
   store.save('event', stamp({ title: 'Elternabend', date: addDays(ref, 1), start: '18:30', end: '20:00', tentative: false, orderId: null, location: 'Volksschule Zirkusgasse 48, 1020 Wien' }));
   // Rhythms: Anna is overdue (call), Mama is fine; "Kaffee mit Lisa" every two weeks in the calendar is a learned proposal.
