@@ -1,3 +1,5 @@
+import logoDark from '../assets/logo-dark.svg';
+import logoLight from '../assets/logo-light.svg';
 import { activeHints, buildBriefing, type Hint } from '../core/briefing/briefing';
 import { formatLong, fromISO, WEEKDAY_NAMES, formatShort } from '../core/time/dates';
 import { allEvents } from '../core/calendar/feeds';
@@ -27,6 +29,8 @@ export function Today({ onOpenProvider }: { onOpenProvider: (id: string) => void
 
   return (
     <div className="screen">
+      <img className="brand-logo on-light" src={logoLight} alt="Parto PA" />
+      <img className="brand-logo on-dark" src={logoDark} alt="" aria-hidden="true" />
       <header className="hero">
         <div className="hero-day">{WEEKDAY_NAMES[fromISO(today).getDay()]}</div>
         <div className="hero-date">{formatLong(today)}</div>

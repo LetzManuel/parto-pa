@@ -1,5 +1,6 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
+import '@fontsource-variable/nunito';
 import './styles.css';
 import { openStore } from './platform/db';
 import { App } from './ui/App';
