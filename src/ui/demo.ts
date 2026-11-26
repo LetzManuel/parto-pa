@@ -8,6 +8,8 @@ import { syncProviderOrder } from './providers';
 import { listFromIntent } from '../core/shopping/lists';
 import { parseShopping } from '../core/shopping/parse';
 import type { Favourite } from '../core/favourites/model';
+import { createRhythm } from '../core/rhythms/engine';
+import { createTouch } from '../core/rhythms/history';
 
 /** Sample data for pilot demos, relative to today. */
 export function loadDemo(store: Store, ref = todayISO()): void {
@@ -55,4 +57,13 @@ export function loadDemo(store: Store, ref = todayISO()): void {
   fav({ kind: 'babysitter', priority: 2, name: 'Jakob Steiner', phone: '0676 765 43 21' });
   store.save('event', stamp({ title: 'Laufen mit Ben', date: ref, start: '18:00', end: '19:00', tentative: false, orderId: null, location: 'Prater Hauptallee, 1020 Wien' }));
   store.save('event', stamp({ title: 'Elternabend', date: addDays(ref, 1), start: '18:30', end: '20:00', tentative: false, orderId: null, location: 'Volksschule Zirkusgasse 48, 1020 Wien' }));
+  // Rhythms: Anna is overdue (call), Mama is fine; "Kaffee mit Lisa" every two weeks in the calendar is a learned proposal.
+  store.save('rhythm', createRhythm({ subject: 'person:anna', label: 'Anna', kind: 'contact', everyN: 3, everyUnit: 'week', lastDone: addDays(ref, -36), phone: '+43 660 765 43 21' }));
+  store.save('rhythm', createRhythm({ subject: 'person:mama', label: 'Mama', kind: 'contact', everyN: 1, everyUnit: 'week', channel: 'message' }));
+  store.save('touch', createTouch({ subject: 'person:mama', kind: 'contact', date: addDays(ref, -3), source: 'voice', direction: 'in' }));
+  store.save('rhythm', createRhythm({ subject: 'massage', label: 'Massage', kind: 'booking', everyN: 2, everyUnit: 'month', lastDone: addDays(ref, -40) }));
+  for (const d of [-44, -30, -16, -3]) {
+    store.save('event', stamp({ title: 'Kaffee mit Lisa', date: addDays(ref, d), start: '08:15', end: '09:00', tentative: false, orderId: null }));
+  }
+  store.save('event', stamp({ title: 'Elternabend', date: addDays(ref, 1), start: '18:30', end: '20:00', tentative: false, orderId: null }));
 }

@@ -35,7 +35,7 @@ function Shell() {
     <div className="app">
       {import.meta.env.VITE_APP_ENV === 'test' && <div className="test-badge" title="Testumgebung, nur Testdaten">TEST</div>}
       <main>
-        {tab === 'today' && <Today onOpenProvider={setSheet} onOpenBasket={setBasket} onFind={() => setFinder({})} />}
+        {tab === 'today' && <Today onOpenProvider={setSheet} onOpenBasket={setBasket} onFind={() => setFinder({})} onOpenMe={() => setTab('me')} />}
         {tab === 'calendar' && <Calendar />}
         {tab === 'capture' && <Capture onDone={() => setTab('orders')} onOpenBasket={(id) => { setTab('today'); setBasket(id); }} onFind={(text) => setFinder({ text })} />}
         {tab === 'orders' && <Orders />}

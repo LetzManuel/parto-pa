@@ -12,6 +12,7 @@ import { ShoppingSettings } from './Shopping';
 import { Favourites } from './Favourites';
 import type { FavKind } from '../core/favourites/model';
 import { TravelSettings } from './TravelSettings';
+import { Rhythms } from './Rhythms';
 
 export function Me({ onOpenProvider, onOpenBasket, onFind }: { onOpenProvider: (id: string) => void; onOpenBasket: (id: string) => void; onFind: (kind: FavKind, topic: string | null) => void }) {
   const { store, refresh } = usePA();
@@ -30,6 +31,7 @@ export function Me({ onOpenProvider, onOpenBasket, onFind }: { onOpenProvider: (
       </Section>
       <Favourites onCheck={onFind} />
       <TravelSettings />
+      <Rhythms />
       <Providers onOpen={onOpenProvider} />
       <ShoppingSettings onOpen={onOpenBasket} />
       <Memory />
