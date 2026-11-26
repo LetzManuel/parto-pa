@@ -8,7 +8,7 @@ import { runAction } from './actions';
 import { suggestionsFor } from '../core/rhythms/touch';
 import { RhythmCard } from './RhythmCard';
 import { usePA } from './context';
-import { Card, Empty, Section } from './kit';
+import { Card, Empty, Section , KIND_LABEL, type CardKind } from './kit';
 import { RestaurantFeedback, ShoppingToday } from './Shopping';
 import { NextUp } from './NextUp';
 
@@ -99,9 +99,20 @@ export function Today({ onOpenProvider, onOpenBasket, onFind, onOpenMe }: { onOp
   );
 }
 
+function hintKind(h: Hint): CardKind {
+  const ids = h.actions.map((a) => a.id);
+  if (h.target.type === 'deadline') return 'frist';
+  if (ids.includes('fallback') || ids.includes('requested') || ids.includes('wait')) return 'warten';
+  if (ids.includes('book')) return 'termin';
+  if (/^Geburtstag\b/.test(h.title)) return 'person';
+  return 'aufgabe';
+}
+
 function HintCard({ h, onAction }: { h: Hint; onAction: (id: Hint['actions'][number]['id']) => void }) {
+  const kind = hintKind(h);
   return (
-    <Card tone={h.priority >= 80 ? 'warn' : 'accent'}>
+    <Card tone={h.priority >= 80 ? 'warn' : 'accent'} kind={kind}>
+      <div className="kind-label">{KIND_LABEL[kind]}</div>
       <div className="hint-title">{h.title}</div>
       <div className="hint-text">{h.text}</div>
       <div className="actions">

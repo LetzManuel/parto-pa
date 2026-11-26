@@ -81,9 +81,9 @@ export function RhythmCard({ onOpenProvider, onOpenMe, suggestions }: { onOpenPr
   };
 
   return (
-    <Card tone="accent">
+    <Card tone="accent" kind={s.handoff?.type === 'contact' || s.candidate?.kind === 'contact' ? 'person' : 'vorschlag'}>
       <div className="suggest-head">
-        <span className="suggest-label">{s.source === 'learned' ? 'PA hat ein Muster erkannt' : 'Vorschlag'}</span>
+        <span className="suggest-label kind-label">{s.source === 'learned' ? 'PA hat ein Muster erkannt' : 'Vorschlag'}</span>
       </div>
       <div className="suggest-title">{after ? (after.handoff?.type === 'book' ? 'Hat es mit dem Termin geklappt?' : `Mit ${after.handoff?.type === 'contact' ? after.handoff.person : ''} gesprochen?`) : s.title}</div>
       {!after && <div className="hint-text">{s.text}</div>}
