@@ -1,31 +1,31 @@
-/* Parto Private design line (logos: /mnt/project-files/parto-private-logos, Nov 2026): navy base, PA = teal,
-   warm paper background. Teal text uses the darker --link so small text keeps 4.5:1 on white. Primary buttons are
+/* Parto Private design line (logos approved 27 Nov 2026, brand/): navy base, PA = sage mint #4EAD97 (pastel).
+   Mint fills carry navy text (--pa-ink, 5.4:1); mint as text uses the darker --link #2A7A68 so small text keeps 4.5:1. Primary buttons are
    navy, like the "pa" of the wordmark.
    Calm line (Manuel, 26 Nov 2026: "zu verspielt, wie ein Spiel"): the rounded heavy Nunito stays in the logo only;
    the app uses the system text face, medium weights, 8–12 px corners, white cards with a thin colour edge instead of
    coloured fills, flat controls without glow. A personal assistant, not a game. */
 :root {
   --bg: #ffffff; --surface: #ffffff; --ink: #172a4d; --muted: #5b6680; --line: #e3e6ec;
-  --brand: #172a4d; --brand-ink: #ffffff; --pa: #12a08a; --pa-ink: #ffffff; --link: #0b7c6b;
-  --accent: #e4f4f0; --accent-line: #b3e0d6;
-  --warn: #fdf0e2; --warn-line: #f0cfa6; --ok: #0b7c6b; --danger: #b3402f; --health: #7b4fc4;
+  --brand: #172a4d; --brand-ink: #ffffff; --pa: #4ead97; --pa-ink: #172a4d; --link: #2a7a68;
+  --accent: #e4f4f0; --accent-line: #b8e0d6;
+  --warn: #fdf0e2; --warn-line: #f0cfa6; --ok: #2a7a68; --danger: #b3402f; --health: #6352b0;
   --radius: 6px; --radius-sm: 4px; --font: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   color-scheme: light;
 }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
     --bg: #0a1220; --surface: #111c30; --ink: #e8edf6; --muted: #8e9ab3; --line: #1f2c45;
-    --brand: #2fc3a9; --brand-ink: #0a1220; --pa: #2fc3a9; --pa-ink: #0a1220; --link: #2fc3a9;
+    --brand: #86d3c1; --brand-ink: #0a1220; --pa: #86d3c1; --pa-ink: #0a1220; --link: #86d3c1;
     --accent: #10283a; --accent-line: #1d4a55;
-    --warn: #33291c; --warn-line: #5e4a2b; --ok: #2fc3a9; --danger: #f08a7a; --health: #a07ce6;
+    --warn: #33291c; --warn-line: #5e4a2b; --ok: #86d3c1; --danger: #f08a7a; --health: #b3a6ec;
     color-scheme: dark;
   }
 }
 :root[data-theme="dark"] {
     --bg: #0a1220; --surface: #111c30; --ink: #e8edf6; --muted: #8e9ab3; --line: #1f2c45;
-    --brand: #2fc3a9; --brand-ink: #0a1220; --pa: #2fc3a9; --pa-ink: #0a1220; --link: #2fc3a9;
+    --brand: #86d3c1; --brand-ink: #0a1220; --pa: #86d3c1; --pa-ink: #0a1220; --link: #86d3c1;
     --accent: #10283a; --accent-line: #1d4a55;
-    --warn: #33291c; --warn-line: #5e4a2b; --ok: #2fc3a9; --danger: #f08a7a; --health: #a07ce6;
+    --warn: #33291c; --warn-line: #5e4a2b; --ok: #86d3c1; --danger: #f08a7a; --health: #b3a6ec;
     color-scheme: dark;
   }
 * { box-sizing: border-box; }
@@ -44,7 +44,7 @@ h2 { font-size: 0.92rem; color: var(--muted); margin: 0; font-weight: 600; }
 .card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 14px 16px; margin-bottom: 10px; }
 /* status line above a title, like "WARTET AUF ANTWORT", with a small colour dot instead of coloured cards */
 /* Clear colours per kind: a 4px bar on the left and the status line in the same colour. */
-:root { --k-vorschlag: #0b8f7a; --k-frist: #c8322e; --k-warten: #d96a0b; --k-termin: #2563c9; --k-person: #7b4fc4; --k-aufgabe: #172a4d; }
+:root { --k-vorschlag: #2a7a68; --k-frist: #c8322e; --k-warten: #d96a0b; --k-termin: #2563c9; --k-person: #7b4fc4; --k-aufgabe: #172a4d; }
 .card[class*=" k-"] { border-left: 4px solid var(--k); }
 .card.k-vorschlag { --k: var(--k-vorschlag); } .card.k-frist { --k: var(--k-frist); } .card.k-warten { --k: var(--k-warten); }
 .card.k-termin { --k: var(--k-termin); } .card.k-person { --k: var(--k-person); } .card.k-aufgabe { --k: var(--k-aufgabe); }
@@ -240,5 +240,5 @@ button.mic.small.on { background: var(--pa); color: var(--pa-ink); border-color:
 :root[data-theme="dark"] .card[class*=" k-"] { background: color-mix(in srgb, var(--kp) 16%, var(--surface)); }
 :root[data-theme="dark"] .card[class*=" k-"] button:not(.primary) { background: var(--bg); color: var(--ink); }
 /* "PA erledigt das": the action on every to-do that hands it to PA. Same on every card, teal = PA. */
-button.pa-do, .card[class*=" k-"] button.pa-do { background: var(--pa); border-color: var(--pa); color: #fff; display: inline-flex; align-items: center; gap: 6px; }
+button.pa-do, .card[class*=" k-"] button.pa-do { background: var(--pa); border-color: var(--pa); color: var(--pa-ink); display: inline-flex; align-items: center; gap: 6px; }
 button.pa-do::before { content: "✓"; font-weight: 700; }
